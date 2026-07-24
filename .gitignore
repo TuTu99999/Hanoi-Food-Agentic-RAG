@@ -1,0 +1,25 @@
+.env
+
+qdrant_storage/
+qdrant_data/
+
+# Bỏ qua các file logs hệ thống
+*.log
+
+venv/
+.venv/
+env/
+ENV/
+bin/
+lib/
+include/
+
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+
+.vscode/
+.DS_Store
