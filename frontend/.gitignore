@@ -1,0 +1,81 @@
+# ==========================================
+# 1. DEPENDENCIES (Thư viện phụ thuộc - Cực nặng, tái tạo bằng npm i)
+# ==========================================
+node_modules/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# ==========================================
+# 2. BUILD OUTPUTS (Thư mục sau khi build sản phẩm)
+# ==========================================
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+.vuepress/dist/
+.svelte-kit/
+storybook-static/
+
+# ==========================================
+# 3. ENVIRONMENT VARIABLES (Biến môi trường - Nơi chứa API Key, Token nhạy cảm)
+# ==========================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# LƯU Ý: Giữ lại file .env.example trên Git để làm template cho dev khác!
+
+# ==========================================
+# 4. LOGS & TEMPORARY FILES (Log lỗi & File tạm)
+# ==========================================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+.cache/
+.eslintcache
+.stylelintcache
+.vite/
+.turbo/
+
+# ==========================================
+# 5. IDE & EDITOR SETTINGS (Cấu hình riêng của từng máy dev)
+# ==========================================
+# Visual Studio Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.code-workspace
+
+# WebStorm / JetBrains
+.idea/
+
+# Mac / Windows system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ==========================================
+# 6. TESTING & COVERAGE (Báo cáo chạy Test)
+# ==========================================
+coverage/
+.nyc_output/
+cypress/videos/
+cypress/screenshots/
+playwright-report/
+blob-report/
+test-results/

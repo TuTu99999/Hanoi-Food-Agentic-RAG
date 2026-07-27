@@ -1,73 +1,287 @@
-import os
-import sys
-from dotenv import load_dotenv
-from google import genai
-from google.genai import types
-from embedding.retrieval_engine import RetrievalEngine
+import asyncio
+import json
+import logging
+import re
+import threading
+import time
+import unicodedata
+from typing import AsyncIterator
+
+from openai import AsyncOpenAI, OpenAI
+
+from core.config import settings
+from core.resilience import (
+    CircuitBreaker,
+    call_with_retry,
+    call_with_retry_async,
+)
 
 
-load_dotenv()
+logger = logging.getLogger(__name__)
+
+NO_RESULTS_MESSAGE = (
+    "Dựa trên dữ liệu hiện tại, hệ thống không tìm thấy thông tin nào "
+    "liên quan đến câu hỏi của bạn."
+)
+SYSTEM_INSTRUCTION = (
+    "Bạn là trợ lý tư vấn ẩm thực và du lịch Hà Nội.\n"
+    "Hãy trả lời tự nhiên, thân thiện và hữu ích.\n"
+    "QUY TẮC CHỐNG ẢO TƯỞNG:\n"
+    "1. Chỉ dùng dữ liệu trong phần 'NGỮ CẢNH CUNG CẤP' của câu hỏi hiện tại.\n"
+    "2. Lịch sử hội thoại chỉ dùng để hiểu người dùng đang nhắc đến đối tượng nào; "
+    "không coi lịch sử là nguồn dữ liệu mới.\n"
+    "3. Không tự thêm, suy đoán hoặc dùng kiến thức bên ngoài.\n"
+    "4. Nếu ngữ cảnh không đủ, hãy trả lời: "
+    "'Dựa trên dữ liệu hiện tại, tôi không có đủ thông tin chi tiết về vấn đề này.'\n"
+    "5. Có thể nhận biết lỗi chính tả nhỏ khi tên trong ngữ cảnh khớp rõ ràng; "
+    "không tự tạo địa điểm mới."
+)
+
+
+class RAGConfigurationError(RuntimeError):
+    pass
+
+
+def _normalize_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFD", value.lower())
+    normalized = "".join(
+        character
+        for character in normalized
+        if unicodedata.category(character) != "Mn"
+    )
+    normalized = normalized.replace("đ", "d")
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", normalized).split())
+
+
+def _greeting_response(question: str) -> str | None:
+    greetings = {
+        "chao",
+        "chao ban",
+        "hello",
+        "hey",
+        "hi",
+        "xin chao",
+    }
+    if _normalize_text(question) not in greetings:
+        return None
+    return (
+        "Xin chào! Mình có thể giúp bạn tìm quán ăn hoặc "
+        "địa điểm du lịch tại Hà Nội."
+    )
+
 
 class RAGPipeline:
     def __init__(self):
         """
-        Khởi tạo RAG Pipeline:
-        1. Kiểm tra API Key.
-        2. Khởi tạo Gemini API Client.
-        3. Để self.retriever = None (Lazy Loading).
+        Khởi tạo RAG Pipeline dùng OpenAI-compatible API:
+        1. Kiểm tra GITHUB_TOKEN trong .env.
+        2. Khởi tạo client từ LLM_BASE_URL và LLM_MODEL.
+        3. Khởi tạo lazy loading cho RetrievalEngine.
         """
-        api_key = os.environ.get("GEMINI_API_KEY")
-        if not api_key:
-            print("[Lỗi] Không tìm thấy GEMINI_API_KEY trong file .env hoặc hệ thống!")
-            sys.exit(1)
-            
-        
+        github_token = settings.GITHUB_TOKEN
+        if not github_token:
+            raise RAGConfigurationError(
+                "Không tìm thấy GITHUB_TOKEN trong file .env hoặc hệ thống."
+            )
+
         self.retriever = None
-        
-        self.ai_client = genai.Client(api_key=api_key)
-        self.llm_model = "gemini-3.5-flash" 
+        self._retriever_lock = threading.Lock()
+
+        client_options = {
+            "base_url": settings.LLM_BASE_URL,
+            "api_key": github_token,
+            "timeout": settings.LLM_TIMEOUT_SECONDS,
+            "max_retries": 0,
+        }
+        self.ai_client = OpenAI(**client_options)
+        self.async_ai_client = AsyncOpenAI(**client_options)
+        self.llm_model = settings.LLM_MODEL
+        self.llm_circuit_breaker = CircuitBreaker(
+            failure_threshold=settings.CIRCUIT_BREAKER_FAILURES,
+            reset_seconds=settings.CIRCUIT_BREAKER_RESET_SECONDS,
+        )
 
     def _get_retriever(self):
-        """Hàm hỗ trợ Lazy Load RetrievalEngine"""
+        """Hàm Lazy Load RetrievalEngine"""
         if self.retriever is None:
-            print("[Info] Đang khởi tạo Retrieval Engine & Nạp Model Embedding...")
-            self.retriever = RetrievalEngine()
+            with self._retriever_lock:
+                if self.retriever is None:
+                    logger.info(
+                        "Loading retrieval engine and embedding model."
+                    )
+                    from embedding.retrieval_engine import RetrievalEngine
+
+                    self.retriever = RetrievalEngine(
+                        qdrant_url=settings.QDRANT_URL,
+                        qdrant_api_key=settings.QDRANT_API_KEY,
+                        collection_name=settings.QDRANT_COLLECTION,
+                        embedding_model=settings.EMBEDDING_MODEL,
+                        timeout_seconds=settings.QDRANT_TIMEOUT_SECONDS,
+                        retry_attempts=settings.EXTERNAL_RETRY_ATTEMPTS,
+                        retry_base_seconds=(
+                            settings.EXTERNAL_RETRY_BASE_SECONDS
+                        ),
+                        retry_max_seconds=(
+                            settings.EXTERNAL_RETRY_MAX_SECONDS
+                        ),
+                        circuit_failure_threshold=(
+                            settings.CIRCUIT_BREAKER_FAILURES
+                        ),
+                        circuit_reset_seconds=(
+                            settings.CIRCUIT_BREAKER_RESET_SECONDS
+                        ),
+                        local_files_only=(
+                            settings.EMBEDDING_LOCAL_FILES_ONLY
+                        ),
+                    )
+                    logger.info("Retrieval engine loaded.")
+
         return self.retriever
 
-    def run(self, user_question: str, collection_name: str, district: str = None):
-        """
-        Quy trình xử lý RAG hoàn chỉnh
-        """
-        # BƯỚC 1: RETRIEVAL (Chỉ lúc này mới tải Model Embedding vào RAM)
-        retriever = self._get_retriever()
-        
-        context_docs = retriever.search(
-            collection_name=collection_name,
-            query=user_question,
-            top_k=3,
-            district_filter=district
+    def warmup(self) -> None:
+        self._get_retriever()
+
+    def check_retrieval_ready(self) -> None:
+        self._get_retriever().check_ready()
+
+    def llm_health_status(self) -> str:
+        if self.llm_circuit_breaker.state == "open":
+            return "unavailable"
+        return "configured"
+
+    async def aclose(self) -> None:
+        if self.retriever is not None:
+            try:
+                await asyncio.to_thread(self.retriever.close)
+            except Exception:
+                logger.exception("Không thể đóng Qdrant client.")
+
+        try:
+            await self.async_ai_client.close()
+        except Exception:
+            logger.exception("Không thể đóng AsyncOpenAI client.")
+
+        try:
+            await asyncio.to_thread(self.ai_client.close)
+        except Exception:
+            logger.exception("Không thể đóng OpenAI client.")
+
+    @staticmethod
+    def _clean_history(
+        history: list[dict[str, str]] | None,
+    ) -> list[dict[str, str]]:
+        cleaned_history = []
+        for message in history or []:
+            role = message.get("role")
+            content = message.get("content")
+            if (
+                role in {"user", "assistant"}
+                and isinstance(content, str)
+                and content.strip()
+            ):
+                cleaned_history.append(
+                    {
+                        "role": role,
+                        "content": content.strip(),
+                    }
+                )
+        return cleaned_history
+
+    @staticmethod
+    def _build_search_query(
+        user_question: str,
+        history: list[dict[str, str]],
+    ) -> str:
+        """Add the previous question when the current question is a short follow-up."""
+        if len(_normalize_text(user_question).split()) > 12:
+            return user_question
+
+        previous_question = next(
+            (
+                message["content"]
+                for message in reversed(history)
+                if message["role"] == "user"
+            ),
+            "",
         )
-        
-        if not context_docs or context_docs[0]['score'] < 0.3:
-            return "Dựa trên dữ liệu hiện tại, hệ thống không tìm thấy thông tin nào liên quan đến câu hỏi của bạn."
+        if not previous_question:
+            return user_question
 
-        # Trích xuất văn bản thô từ Qdrant payload
-        context_segments = []
+        return f"{user_question}\n{previous_question[:300]}"
+
+    def _prepare_messages(
+        self,
+        user_question: str,
+        collection_name: str | None = None,
+        district: str | None = None,
+        history: list[dict[str, str]] | None = None,
+    ) -> tuple[
+        str | None,
+        list[dict[str, str]],
+        list[dict],
+    ]:
+        greeting = _greeting_response(user_question)
+        if greeting:
+            return greeting, [], []
+
+        cleaned_history = self._clean_history(history)
+        retriever = self._get_retriever()
+        search_query = self._build_search_query(
+            user_question,
+            cleaned_history,
+        )
+
+        context_docs = retriever.search(
+            query=search_query,
+            top_k=5,
+            district_filter=district,
+            min_score=settings.RAG_MIN_SCORE,
+            collection_name=collection_name,
+        )
+
+        logger.info(
+            "Qdrant search completed.",
+            extra={
+                "query_length": len(user_question),
+                "result_count": len(context_docs),
+                "district": district or "-",
+            },
+        )
+        for idx, doc in enumerate(context_docs):
+            logger.debug(
+                "Qdrant result ranked.",
+                extra={
+                    "result_index": idx + 1,
+                    "semantic_score": doc.get("score", 0),
+                    "ranking_score": doc.get("ranking_score", 0),
+                },
+            )
+
+        if not context_docs:
+            logger.info("No document passed the retrieval threshold.")
+            return NO_RESULTS_MESSAGE, [], []
+
+        structured_context = []
         for doc in context_docs:
-            segment = f"--- THÔNG TIN THỰC THỂ: {doc['title']} ({doc.get('district', 'N/A')}) ---\n{doc['text']}"
-            context_segments.append(segment)
-            
-        context_text = "\n\n".join(context_segments)
+            structured_context.append(
+                {
+                    "domain": doc.get("domain"),
+                    "title": doc.get("title"),
+                    "address": doc.get("address"),
+                    "district": doc.get("district"),
+                    "category": doc.get("category"),
+                    "sub_category": doc.get("sub_category"),
+                    "price_range": doc.get("price_range"),
+                    "opening_hours": doc.get("opening_hours"),
+                    "tags": doc.get("tags", []),
+                    "description": doc.get("content", ""),
+                }
+            )
 
-        # BƯỚC 2: PROMPT ENGINEERING & HALLUCINATION HANDLING
-        system_instruction = (
-            "Bạn là một trợ lý ảo chuyên gia am hiểu sâu sắc về Ẩm thực và Địa điểm Du lịch Hà Nội.\n"
-            "Nhiệm vụ của bạn là trả lời câu hỏi của người dùng một cách tự nhiên, thân thiện và hữu ích.\n"
-            "QUY TẮC CHỐNG ẢO TƯỞNG (HALLUCINATION HANDLING) TUYỆT ĐỐI:\n"
-            "1. Chỉ được phép sử dụng thông tin nằm trong phần 'NGỮ CẢNH CUNG CẤP' dưới đây để trả lời.\n"
-            "2. Không tự ý thêm bớt, suy đoán hoặc sử dụng kiến thức bên ngoài của bạn để bổ sung thông tin nếu ngữ cảnh không nhắc tới.\n"
-            "3. Nếu thông tin trong ngữ cảnh không đủ để trả lời câu hỏi, hãy thẳng thắn phản hồi: "
-            "'Dựa trên dữ liệu hiện tại, tôi không có đủ thông tin chi tiết về vấn đề này.' một cách lịch sự."
+        context_text = json.dumps(
+            structured_context,
+            ensure_ascii=False,
+            indent=2,
         )
 
         user_content = f"""Dưới đây là dữ liệu chính xác được trích xuất từ hệ thống. Hãy dựa vào đó để xử lý yêu cầu của người dùng.
@@ -76,21 +290,144 @@ class RAGPipeline:
 {context_text}
 
 [CÂU HỎI NGƯỜI DÙNG]:
-{user_question}
+{user_question}"""
 
-[CÂU TRẢ LỜI CỦA BẠN]:"""
+        messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
+        messages.extend(cleaned_history)
+        messages.append({"role": "user", "content": user_content})
+        return None, messages, structured_context
 
-        # BƯỚC 3: GENERATION
-        try:
-            response = self.ai_client.models.generate_content(
+    def run_with_metrics(
+        self,
+        user_question: str,
+        collection_name: str | None = None,
+        district: str | None = None,
+        history: list[dict[str, str]] | None = None,
+    ) -> dict:
+        started_at = time.perf_counter()
+        direct_answer, messages, context = self._prepare_messages(
+            user_question=user_question,
+            collection_name=collection_name,
+            district=district,
+            history=history,
+        )
+        if direct_answer:
+            return {
+                "answer": direct_answer,
+                "context": context,
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "latency_ms": round(
+                    (time.perf_counter() - started_at) * 1000,
+                    2,
+                ),
+            }
+
+        logger.info("Bắt đầu gọi LLM cho câu hỏi đã truy xuất ngữ cảnh.")
+        response = call_with_retry(
+            lambda: self.ai_client.chat.completions.create(
                 model=self.llm_model,
-                contents=user_content,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    temperature=0.3, 
-                    max_output_tokens=800
-                )
-            )
-            return response.text
-        except Exception as e:
-            return f"[Lỗi hệ thống LLM]: Không thể sinh câu trả lời. Chi tiết lỗi: {str(e)}"
+                messages=messages,
+                temperature=0.3,
+                max_tokens=800,
+            ),
+            attempts=settings.EXTERNAL_RETRY_ATTEMPTS,
+            base_seconds=settings.EXTERNAL_RETRY_BASE_SECONDS,
+            max_seconds=settings.EXTERNAL_RETRY_MAX_SECONDS,
+            circuit_breaker=self.llm_circuit_breaker,
+        )
+
+        answer = response.choices[0].message.content
+        if not isinstance(answer, str) or not answer.strip():
+            raise RuntimeError("LLM trả về nội dung rỗng.")
+
+        usage = getattr(response, "usage", None)
+        prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
+        completion_tokens = int(
+            getattr(usage, "completion_tokens", 0) or 0
+        )
+        logger.info("LLM đã trả lời thành công.")
+        return {
+            "answer": answer,
+            "context": context,
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "latency_ms": round(
+                (time.perf_counter() - started_at) * 1000,
+                2,
+            ),
+        }
+
+    def run(
+        self,
+        user_question: str,
+        collection_name: str | None = None,
+        district: str | None = None,
+        history: list[dict[str, str]] | None = None,
+    ) -> str:
+        result = self.run_with_metrics(
+            user_question=user_question,
+            collection_name=collection_name,
+            district=district,
+            history=history,
+        )
+        return result["answer"]
+
+    async def stream(
+        self,
+        user_question: str,
+        collection_name: str | None = None,
+        district: str | None = None,
+        history: list[dict[str, str]] | None = None,
+    ) -> AsyncIterator[str]:
+        direct_answer, messages, _context = await asyncio.to_thread(
+            self._prepare_messages,
+            user_question=user_question,
+            collection_name=collection_name,
+            district=district,
+            history=history,
+        )
+        if direct_answer:
+            yield direct_answer
+            return
+
+        logger.info("Bắt đầu stream LLM cho câu hỏi đã truy xuất ngữ cảnh.")
+        response_stream = await call_with_retry_async(
+            lambda: self.async_ai_client.chat.completions.create(
+                model=self.llm_model,
+                messages=messages,
+                temperature=0.3,
+                max_tokens=800,
+                stream=True,
+            ),
+            attempts=settings.EXTERNAL_RETRY_ATTEMPTS,
+            base_seconds=settings.EXTERNAL_RETRY_BASE_SECONDS,
+            max_seconds=settings.EXTERNAL_RETRY_MAX_SECONDS,
+            circuit_breaker=self.llm_circuit_breaker,
+        )
+
+        received_content = False
+        try:
+            async for chunk in response_stream:
+                if not chunk.choices:
+                    continue
+
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    if not isinstance(delta, str):
+                        raise RuntimeError(
+                            "LLM stream trả về delta không hợp lệ."
+                        )
+                    received_content = True
+                    yield delta
+        except Exception:
+            self.llm_circuit_breaker.record_failure()
+            raise
+        finally:
+            await response_stream.close()
+
+        if not received_content:
+            raise RuntimeError("LLM stream trả về nội dung rỗng.")
+
+        self.llm_circuit_breaker.record_success()
+        logger.info("LLM đã stream câu trả lời thành công.")

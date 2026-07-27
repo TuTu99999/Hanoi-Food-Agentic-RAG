@@ -33,7 +33,10 @@ def get_session_messages(
         
     return db.query(MessageModel)\
              .filter(MessageModel.session_id == session_id)\
-             .order_by(MessageModel.created_at.asc()).all()
+             .order_by(
+                 MessageModel.position.asc(),
+                 MessageModel.id.asc(),
+             ).all()
 
 @router.delete("/{session_id}", status_code=status.HTTP_200_OK)
 def delete_chat_session(
@@ -41,12 +44,13 @@ def delete_chat_session(
     current_user: UserModel = Depends(get_current_user), 
     db: Session = Depends(get_db)
 ):
-    deleted = db.query(ChatSessionModel).filter(
+    session = db.query(ChatSessionModel).filter(
         ChatSessionModel.id == session_id, 
         ChatSessionModel.user_id == current_user.id
-    ).delete()
-    db.commit()
-    
-    if not deleted:
+    ).first()
+    if not session:
         raise HTTPException(status_code=404, detail="Không tìm thấy phiên hội thoại cần xóa.")
+
+    db.delete(session)
+    db.commit()
     return {"message": f"Đã xóa phiên hội thoại {session_id} thành công!"}
