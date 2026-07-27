@@ -1,0 +1,66 @@
+[
+  {
+    "query": "cho tôi địa chỉ Phở Thìn Bờ Hồ",
+    "district": "Hoàn Kiếm",
+    "expected_parent_ids": ["food_001"]
+  },
+  {
+    "query": "Cà phê Giảng mở cửa lúc nào",
+    "district": "hoan kiem",
+    "expected_parent_ids": ["food_003"]
+  },
+  {
+    "query": "vị trí bánh mì sốt vang Đình Ngan",
+    "district": "Hoàn Kiếm",
+    "expected_parent_ids": ["food_025"]
+  },
+  {
+    "query": "Bún bò Huế Ngọc Diệp giá bao nhiêu",
+    "district": "Ba Đình",
+    "expected_parent_ids": ["food_184"]
+  },
+  {
+    "query": "Phở cuốn Hương Mai ở đâu",
+    "district": "Tây Hồ",
+    "expected_parent_ids": ["food_201"]
+  },
+  {
+    "query": "GangnamBox The Loop IPH",
+    "district": "Cầu Giấy",
+    "expected_parent_ids": ["food_315"]
+  },
+  {
+    "query": "bún hải sản Ân Béo",
+    "district": "Hai Bà Trưng",
+    "expected_parent_ids": ["food_404"]
+  },
+  {
+    "query": "địa chỉ nhà tù Hỏa Lò",
+    "domain": "travel",
+    "expected_parent_ids": ["travel_002"]
+  },
+  {
+    "query": "Nhà Thờ Lớn Hà Nội mở cửa lúc nào",
+    "domain": "travel",
+    "expected_parent_ids": ["travel_003"]
+  },
+  {
+    "query": "giá vé Đền Ngọc Sơn",
+    "domain": "travel",
+    "expected_parent_ids": ["travel_029"]
+  },
+  {
+    "query": "địa điểm tham quan quanh Hồ Gươm",
+    "domain": "travel",
+    "expected_parent_ids": ["travel_001", "travel_029"]
+  },
+  {
+    "query": "hướng dẫn lập trình Python",
+    "expected_parent_ids": []
+  },
+  {
+    "query": "quán sushi ở Ba Vì",
+    "district": "Ba Vì",
+    "expected_parent_ids": []
+  }
+]

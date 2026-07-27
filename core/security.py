@@ -1,39 +1,109 @@
 import datetime
 from datetime import timezone
+from urllib.parse import urlsplit
+
 import jwt
 import bcrypt
-from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status, Request
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from core.config import settings
+from core.config import ConfigurationError, normalize_origin, settings
 from database.connection import get_db
 from database.models import UserModel
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Custom lại lớp OAuth2 để vừa hỗ trợ Swagger UI vừa hỗ trợ lấy Token từ Cookie
-class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
+SAFE_HTTP_METHODS = {"GET", "HEAD", "OPTIONS"}
+PUBLIC_AUTH_WRITE_PATHS = {
+    "/api/auth/login",
+    "/api/auth/register",
+}
+
+
+def _request_source_origin(request: Request) -> str | None:
+    origin = request.headers.get("origin")
+    if origin is not None:
+        if origin.strip().lower() == "null":
+            return None
+        try:
+            return normalize_origin(origin)
+        except ConfigurationError:
+            return None
+
+    referer = request.headers.get("referer")
+    if not referer:
+        return None
+
+    parsed_referer = urlsplit(referer)
+    if not parsed_referer.scheme or not parsed_referer.netloc:
+        return None
+
+    try:
+        return normalize_origin(
+            f"{parsed_referer.scheme}://{parsed_referer.netloc}"
+        )
+    except ConfigurationError:
+        return None
+
+
+def validate_csrf_request(request: Request) -> None:
+    """Reject forged browser writes while keeping Bearer-only clients usable."""
+    if request.method.upper() in SAFE_HTTP_METHODS:
+        return
+
+    has_auth_cookie = bool(
+        request.cookies.get(settings.AUTH_COOKIE_NAME)
+    )
+    has_browser_source = bool(
+        request.headers.get("origin")
+        or request.headers.get("referer")
+    )
+    requires_origin = (
+        has_auth_cookie
+        or has_browser_source
+        or request.url.path in PUBLIC_AUTH_WRITE_PATHS
+    )
+    if not requires_origin:
+        return
+
+    source_origin = _request_source_origin(request)
+    trusted_origins = set(settings.CORS_ORIGINS)
+    try:
+        base_url = urlsplit(str(request.base_url))
+        trusted_origins.add(
+            normalize_origin(f"{base_url.scheme}://{base_url.netloc}")
+        )
+    except ConfigurationError:
+        pass
+
+    if source_origin not in trusted_origins:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Nguồn gửi yêu cầu không hợp lệ.",
+        )
+
+
+# Hỗ trợ HttpOnly cookie cho browser và Bearer header cho Swagger/API clients.
+class HTTPBearerWithCookie(HTTPBearer):
     async def __call__(self, request: Request) -> str | None:
-        # 1. Ưu tiên lấy Token từ HttpOnly Cookie
-        token = request.cookies.get("access_token")
-        
-        # 2. Nếu trong Cookie có chứa chữ "Bearer ", cắt bớt ra
-        if token and token.startswith("Bearer "):
-            token = token.split(" ")[1]
+        token = request.cookies.get(settings.AUTH_COOKIE_NAME)
+        if token:
+            scheme, _, value = token.partition(" ")
+            if scheme.lower() == "bearer" and value:
+                return value.strip()
             return token
-            
-        # 3. Nếu Cookie không có, fallback về kiểm tra Header Authorization (Để dùng được cho Swagger UI /docs)
-        header_auth = request.headers.get("Authorization")
-        if header_auth and header_auth.startswith("Bearer "):
-            return header_auth.split(" ")[1]
-            
-        return token
 
-oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="/api/auth/login", auto_error=False)
+        credentials: HTTPAuthorizationCredentials | None = await super().__call__(
+            request
+        )
+        if credentials is not None:
+            return credentials.credentials
 
-import bcrypt
+        return None
+
+
+auth_scheme = HTTPBearerWithCookie(auto_error=False)
+
 
 def hash_password(password: str) -> str:
     # bcrypt yêu cầu input dạng bytes
@@ -55,7 +125,10 @@ def create_access_token(data: dict) -> str:
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> UserModel:
+def get_current_user(
+    token: str = Depends(auth_scheme),
+    db: Session = Depends(get_db),
+) -> UserModel:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Thông tin xác thực tài khoản không hợp lệ hoặc đã hết hạn",

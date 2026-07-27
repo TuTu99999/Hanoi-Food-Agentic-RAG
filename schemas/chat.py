@@ -1,29 +1,54 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field, field_validator
+from typing import Literal, Optional
 from datetime import datetime
 
-class ChatRequest(BaseModel):
-    session_id: Optional[int] = None
-    question: str
-    district: Optional[str] = "Tất cả"
 
-class ChatResponse(BaseModel):
-    session_id: int
-    question: str
-    answer: str
+class ChatRequest(BaseModel):
+    session_id: Optional[int] = Field(default=None, gt=0)
+    question: str = Field(min_length=1, max_length=2000)
+    district: Optional[str] = Field(default="Tất cả", max_length=100)
+
+    @field_validator("question")
+    @classmethod
+    def normalize_question(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Câu hỏi không được để trống.")
+        return normalized
+
+    @field_validator("district")
+    @classmethod
+    def normalize_district(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
 
 class MessageResponse(BaseModel):
     id: int
-    question: str
-    answer: str
-    district_filter: Optional[str]
+    turn_id: str
+    position: int
+    role: Literal["user", "assistant"]
+    content: str
+    status: Literal["pending", "completed", "error"]
+    district_filter: Optional[str] = None
     created_at: datetime
+
     class Config:
         from_attributes = True
+
+
+class ChatResponse(BaseModel):
+    session_id: int
+    user_message: MessageResponse
+    assistant_message: MessageResponse
+
 
 class SessionResponse(BaseModel):
     id: int
     title: str
     created_at: datetime
+
     class Config:
         from_attributes = True
