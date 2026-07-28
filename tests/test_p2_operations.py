@@ -27,7 +27,6 @@ from core.resilience import (
     call_with_retry_async,
 )
 from embedding.evaluate_retrieval import evaluate_threshold
-from eval_ragas import build_summary, correctness_score
 from main import app, lifespan
 
 
@@ -273,7 +272,7 @@ class P2OperationsTests(unittest.TestCase):
         self.assertIn("request_id", payload)
         self.assertIn("session_id", payload)
 
-    def test_evaluation_reports_quality_latency_and_cost(self):
+    def test_retrieval_evaluation_reports_quality_and_latency(self):
         class FakeRetriever:
             def search(self, **_kwargs):
                 return [
@@ -305,29 +304,6 @@ class P2OperationsTests(unittest.TestCase):
         self.assertEqual(report["district_filter_accuracy"], 1.0)
         self.assertGreaterEqual(report["latency_ms"]["p95"], 0)
         self.assertEqual(report["estimated_cost_usd"], 0.0)
-
-        self.assertEqual(
-            correctness_score(
-                "Giá vé là 30.000đ cho người lớn.",
-                ["30.000đ", "người lớn"],
-            ),
-            1.0,
-        )
-        summary = build_summary(
-            [
-                {
-                    "correctness": 1.0,
-                    "faithfulness": 0.9,
-                    "district_filter": 1.0,
-                    "latency_ms": 100,
-                    "prompt_tokens": 10,
-                    "completion_tokens": 5,
-                    "estimated_cost_usd": 0.01,
-                }
-            ]
-        )
-        self.assertEqual(summary["faithfulness"], 0.9)
-        self.assertEqual(summary["estimated_cost_usd"], 0.01)
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ ENV/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.deepeval/
 .coverage
 .coverage.*
 htmlcov/
@@ -33,10 +34,12 @@ postgres_data/
 
 # Generated embedding exports
 data/final/hanoi_knowledge_v*.json
+data/final/hanoi_food_v*.json
 
 # Logs and caches
 *.log
 .cache/
+reports/
 
 # IDE and operating system
 .vscode/

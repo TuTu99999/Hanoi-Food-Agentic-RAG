@@ -1,0 +1,84 @@
+{"text":"xin chào","label":"chitchat","group_id":"chitchat_001"}
+{"text":"hello bạn ơi","label":"chitchat","group_id":"chitchat_002"}
+{"text":"hi","label":"chitchat","group_id":"chitchat_003"}
+{"text":"chao nha","label":"chitchat","group_id":"chitchat_004"}
+{"text":"ê chào m","label":"chitchat","group_id":"chitchat_005"}
+{"text":"cảm ơn bạn nhé","label":"chitchat","group_id":"chitchat_006"}
+{"text":"cam on m nha","label":"chitchat","group_id":"chitchat_007"}
+{"text":"tạm biệt","label":"chitchat","group_id":"chitchat_008"}
+{"text":"hôm nay bạn thế nào","label":"chitchat","group_id":"chitchat_009"}
+{"text":"rất vui được nói chuyện với bạn","label":"chitchat","group_id":"chitchat_010"}
+{"text":"oke cảm ơn nhiều","label":"chitchat","group_id":"chitchat_011"}
+{"text":"chúc buổi sáng tốt lành","label":"chitchat","group_id":"chitchat_012"}
+{"text":"địa chỉ Cà phê Giảng ở đâu","label":"entity_lookup","group_id":"entity_lookup_001"}
+{"text":"ca phe giang nam cho nao","label":"entity_lookup","group_id":"entity_lookup_002"}
+{"text":"cho t vị trí Phở Thìn Bờ Hồ","label":"entity_lookup","group_id":"entity_lookup_003"}
+{"text":"Bánh mì sốt vang Đình Ngang mở cửa lúc nào","label":"entity_lookup","group_id":"entity_lookup_004"}
+{"text":"giá ở Bún bò Huế Ngọc Diệp bao nhiêu","label":"entity_lookup","group_id":"entity_lookup_005"}
+{"text":"xin thông tin quán Chả cá Lã Vọng","label":"entity_lookup","group_id":"entity_lookup_006"}
+{"text":"quan Pho Thin co dia chi gi","label":"entity_lookup","group_id":"entity_lookup_007"}
+{"text":"Gác Trịnh Cafe bán món gì","label":"entity_lookup","group_id":"entity_lookup_008"}
+{"text":"số nhà của Xôi Yến là bao nhiêu","label":"entity_lookup","group_id":"entity_lookup_009"}
+{"text":"Cộng Cà Phê Trần Thái Tông đóng cửa mấy giờ","label":"entity_lookup","group_id":"entity_lookup_010"}
+{"text":"m cho hỏi Maison de Tet Decor ở quận nào","label":"entity_lookup","group_id":"entity_lookup_011"}
+{"text":"menu giá của Chops Tay Ho thế nào","label":"entity_lookup","group_id":"entity_lookup_012"}
+{"text":"tìm quán phở ở Hoàn Kiếm","label":"food_search","group_id":"food_search_001"}
+{"text":"tim quan bun cha o ba dinh","label":"food_search","group_id":"food_search_002"}
+{"text":"quán ăn dưới 100k tại Cầu Giấy","label":"food_search","group_id":"food_search_003"}
+{"text":"cho t danh sách quán mở sau 19h ở Tây Hồ","label":"food_search","group_id":"food_search_004"}
+{"text":"ở Hai Bà Trưng có quán bún hải sản nào","label":"food_search","group_id":"food_search_005"}
+{"text":"t muốn tìm đồ chay quanh Hoàn Kiếm","label":"food_search","group_id":"food_search_006"}
+{"text":"kiem quan sushi gia duoi 200k","label":"food_search","group_id":"food_search_007"}
+{"text":"có quán cà phê nào mở buổi sáng không","label":"food_search","group_id":"food_search_008"}
+{"text":"lọc giúp tôi nhà hàng món Ấn ở Tây Hồ","label":"food_search","group_id":"food_search_009"}
+{"text":"quán bánh mì trong quận Ba Đình","label":"food_search","group_id":"food_search_010"}
+{"text":"kiếm chỗ bán bún đậu gần Cầu Giấy","label":"food_search","group_id":"food_search_011"}
+{"text":"tìm hàng ăn có giá từ 50k đến 150k","label":"food_search","group_id":"food_search_012"}
+{"text":"gợi ý quán ăn ngon ở Hoàn Kiếm","label":"recommendation","group_id":"recommendation_001"}
+{"text":"recommend cho t chỗ ăn tối oke ở Tây Hồ","label":"recommendation","group_id":"recommendation_002"}
+{"text":"quán nào yên tĩnh để hẹn hò","label":"recommendation","group_id":"recommendation_003"}
+{"text":"goi y quan cafe chill chill de lam viec","label":"recommendation","group_id":"recommendation_004"}
+{"text":"nên ăn phở ở đâu tại Hà Nội","label":"recommendation","group_id":"recommendation_005"}
+{"text":"chỗ nào hợp đi ăn cùng gia đình","label":"recommendation","group_id":"recommendation_006"}
+{"text":"tư vấn quán bình dân cho sinh viên","label":"recommendation","group_id":"recommendation_007"}
+{"text":"có nhà hàng nào phù hợp tiếp khách không","label":"recommendation","group_id":"recommendation_008"}
+{"text":"giới thiệu giúp mình quán ăn đêm ngon","label":"recommendation","group_id":"recommendation_009"}
+{"text":"cho t xin quán lẩu đáng thử nhất","label":"recommendation","group_id":"recommendation_010"}
+{"text":"món Hà Nội nào đáng ăn và nên ăn ở đâu","label":"recommendation","group_id":"recommendation_011"}
+{"text":"tư vấn một quán không cay cho trẻ nhỏ","label":"recommendation","group_id":"recommendation_012"}
+{"text":"so sánh Phở Thìn và Phở Lý Quốc Sư","label":"comparison","group_id":"comparison_001"}
+{"text":"Cà phê Giảng với Cộng Cà Phê chỗ nào ổn hơn","label":"comparison","group_id":"comparison_002"}
+{"text":"so sanh gia Chops Tay Ho va The Republic","label":"comparison","group_id":"comparison_003"}
+{"text":"Bún chả Hương Liên khác Bún chả Đắc Kim thế nào","label":"comparison","group_id":"comparison_004"}
+{"text":"giữa hai quán Pizza 4P's và MAAZI nên chọn quán nào","label":"comparison","group_id":"comparison_005"}
+{"text":"đối chiếu giờ mở cửa của Phở Thìn với Xôi Yến","label":"comparison","group_id":"comparison_006"}
+{"text":"quan nao re hon giua A va B","label":"comparison","group_id":"comparison_007"}
+{"text":"so giúp t địa chỉ hai chi nhánh này","label":"comparison","group_id":"comparison_008"}
+{"text":"Gác Trịnh Cafe hay Maison de Tet Decor hợp làm việc hơn","label":"comparison","group_id":"comparison_009"}
+{"text":"đặt lên bàn cân Chả cá Lã Vọng và Chả cá Anh Vũ","label":"comparison","group_id":"comparison_010"}
+{"text":"hai quán bún bò này quán nào đóng muộn hơn","label":"comparison","group_id":"comparison_011"}
+{"text":"compare quán A với quán B cho t","label":"comparison","group_id":"comparison_012"}
+{"text":"lập food tour 3 quán ở Hoàn Kiếm","label":"planning","group_id":"planning_001"}
+{"text":"lên lịch ăn một ngày tại Hà Nội cho tôi","label":"planning","group_id":"planning_002"}
+{"text":"xếp giúp t ba điểm ăn trong ngân sách 500k","label":"planning","group_id":"planning_003"}
+{"text":"lap ke hoach an uong cho hai nguoi toi nay","label":"planning","group_id":"planning_004"}
+{"text":"tạo lịch trình ăn sáng trưa tối ở Ba Đình","label":"planning","group_id":"planning_005"}
+{"text":"sắp xếp tour ăn vặt quanh phố cổ","label":"planning","group_id":"planning_006"}
+{"text":"lên plan đi ba quán sao cho không vượt 600k","label":"planning","group_id":"planning_007"}
+{"text":"thiết kế cho mình chuyến khám phá ẩm thực cuối tuần","label":"planning","group_id":"planning_008"}
+{"text":"tối nay nên đi các quán theo thứ tự nào","label":"planning","group_id":"planning_009"}
+{"text":"xây thực đơn và lịch ăn cho nhóm bốn người","label":"planning","group_id":"planning_010"}
+{"text":"plan food tour it di bo cho t","label":"planning","group_id":"planning_011"}
+{"text":"chia ngân sách 800k cho ba bữa và chọn quán","label":"planning","group_id":"planning_012"}
+{"text":"viết code Python cho tôi","label":"out_of_scope","group_id":"out_of_scope_001"}
+{"text":"giải bài toán phương trình bậc hai","label":"out_of_scope","group_id":"out_of_scope_002"}
+{"text":"thời tiết Hà Nội ngày mai thế nào","label":"out_of_scope","group_id":"out_of_scope_003"}
+{"text":"dịch đoạn văn này sang tiếng Anh","label":"out_of_scope","group_id":"out_of_scope_004"}
+{"text":"cho t xem giá bitcoin hôm nay","label":"out_of_scope","group_id":"out_of_scope_005"}
+{"text":"ai là tổng thống Mỹ","label":"out_of_scope","group_id":"out_of_scope_006"}
+{"text":"ke chuyen cuoi cho t nghe","label":"out_of_scope","group_id":"out_of_scope_007"}
+{"text":"hướng dẫn cài Docker trên Windows","label":"out_of_scope","group_id":"out_of_scope_008"}
+{"text":"viết email xin nghỉ phép","label":"out_of_scope","group_id":"out_of_scope_009"}
+{"text":"tóm tắt bộ phim này giúp tôi","label":"out_of_scope","group_id":"out_of_scope_010"}
+{"text":"mở nhạc cho mình nghe","label":"out_of_scope","group_id":"out_of_scope_011"}
+{"text":"cách sửa lỗi JavaScript là gì","label":"out_of_scope","group_id":"out_of_scope_012"}

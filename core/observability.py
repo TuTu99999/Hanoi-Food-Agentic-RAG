@@ -60,6 +60,13 @@ class JsonFormatter(logging.Formatter):
             "result_index",
             "semantic_score",
             "ranking_score",
+            "intent",
+            "router_source",
+            "router_confidence",
+            "evidence_reason",
+            "retry_count",
+            "branch_counts",
+            "exact_shortcut_used",
             "service",
         ):
             if hasattr(record, field_name):

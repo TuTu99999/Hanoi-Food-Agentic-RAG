@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MessageSquare, Calendar, Trash2, Loader2, MessageCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useChat } from '../context/ChatContext';
 import { ApiError, apiJson } from '../lib/api';
 
 const getSessions = (payload) => (
@@ -48,6 +49,7 @@ export const History = () => {
   const [detailError, setDetailError] = useState('');
   const detailAbortRef = useRef(null);
   const { markUnauthenticated } = useAuth();
+  const { clearSessionIfActive } = useChat();
 
   const handleRequestError = (requestError, setErrorMessage) => {
     if (requestError instanceof ApiError && requestError.status === 401) {
@@ -125,6 +127,7 @@ export const History = () => {
     try {
       await apiJson(`/api/history/${sessionId}`, { method: 'DELETE' });
       setSessions(previous => previous.filter(session => session.id !== sessionId));
+      clearSessionIfActive(sessionId);
 
       if (selectedSessionId === sessionId) {
         detailAbortRef.current?.abort();

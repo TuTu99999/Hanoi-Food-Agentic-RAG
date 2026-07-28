@@ -39,7 +39,7 @@ export const Login = () => {
             <Utensils size={28} />
           </div>
           <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Đăng nhập</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Trợ lý Ẩm thực & Du lịch Hà Nội</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Trợ lý Ẩm thực Hà Nội</p>
         </div>
 
         {/* Thông báo lỗi nếu có */}

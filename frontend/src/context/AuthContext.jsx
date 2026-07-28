@@ -8,6 +8,7 @@ import React, {
   useState,
 } from 'react';
 import { ApiError, apiJson } from '../lib/api';
+import { clearStoredChatSession } from '../lib/chatSession';
 
 const AuthContext = createContext(null);
 
@@ -48,7 +49,9 @@ export const AuthProvider = ({ children }) => {
       if (requestId !== authRequestIdRef.current) return null;
 
       setUser(null);
-      if (!(error instanceof ApiError) || error.status !== 401) {
+      if (error instanceof ApiError && error.status === 401) {
+        clearStoredChatSession();
+      } else {
         setAuthError(error);
       }
       return null;
@@ -107,6 +110,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     if (requestId !== authRequestIdRef.current) return;
+    clearStoredChatSession();
     setUser(null);
     setAuthError(null);
     setIsCheckingAuth(false);
@@ -114,6 +118,7 @@ export const AuthProvider = ({ children }) => {
 
   const markUnauthenticated = useCallback(() => {
     authRequestIdRef.current += 1;
+    clearStoredChatSession();
     setUser(null);
     setAuthError(null);
     setIsCheckingAuth(false);
