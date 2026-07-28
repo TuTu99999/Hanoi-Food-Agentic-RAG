@@ -2,65 +2,121 @@
   {
     "query": "cho tôi địa chỉ Phở Thìn Bờ Hồ",
     "district": "Hoàn Kiếm",
+    "domain": "food",
     "expected_parent_ids": ["food_001"]
   },
   {
-    "query": "Cà phê Giảng mở cửa lúc nào",
+    "query": "ca phe giang mo cua luc nao",
     "district": "hoan kiem",
+    "domain": "food",
     "expected_parent_ids": ["food_003"]
+  },
+  {
+    "query": "Bún thang Bà Đức ở đâu",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": ["food_005"]
+  },
+  {
+    "query": "giờ mở cửa Ốc Hà Trang Đinh Liệt",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": ["food_010"]
   },
   {
     "query": "vị trí bánh mì sốt vang Đình Ngan",
     "district": "Hoàn Kiếm",
+    "domain": "food",
     "expected_parent_ids": ["food_025"]
   },
   {
-    "query": "Bún bò Huế Ngọc Diệp giá bao nhiêu",
+    "query": "bun rieu tom cua hang bong",
+    "district": "hoan kiem",
+    "domain": "food",
+    "expected_parent_ids": ["food_050"]
+  },
+  {
+    "query": "Cơm Gà Gia Trần 1 giá bao nhiêu",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": ["food_075"]
+  },
+  {
+    "query": "Bánh Xèo Bé Uyên đặc sản Đại Lộc",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": ["food_100"]
+  },
+  {
+    "query": "Bún bò Huế Đông Ba Quán",
     "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": ["food_125"]
+  },
+  {
+    "query": "chè Xà Vẵn Ngọc Trâm ở đâu",
+    "district": "ba dinh",
+    "domain": "food",
+    "expected_parent_ids": ["food_150"]
+  },
+  {
+    "query": "tìm Bún Lành",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": ["food_175"]
+  },
+  {
+    "query": "Bún Bò Huế Ngọc Diệp giá bao nhiêu",
+    "district": "Ba Đình",
+    "domain": "food",
     "expected_parent_ids": ["food_184"]
   },
   {
-    "query": "Phở cuốn Hương Mai ở đâu",
+    "query": "Nhà Hàng Sài Gòn 1970s",
     "district": "Tây Hồ",
-    "expected_parent_ids": ["food_201"]
+    "domain": "food",
+    "expected_parent_ids": ["food_225"]
+  },
+  {
+    "query": "sushi club tây hồ mở đến mấy giờ",
+    "district": "tay ho",
+    "domain": "food",
+    "expected_parent_ids": ["food_250"]
+  },
+  {
+    "query": "Maison de Tet Decor brunch",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": ["food_275"]
+  },
+  {
+    "query": "Nhà Hàng Sen Việt Tây Hồ giá",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": ["food_300"]
   },
   {
     "query": "GangnamBox The Loop IPH",
     "district": "Cầu Giấy",
+    "domain": "food",
     "expected_parent_ids": ["food_315"]
   },
   {
-    "query": "bún hải sản Ân Béo",
-    "district": "Hai Bà Trưng",
-    "expected_parent_ids": ["food_404"]
+    "query": "Trill Rooftop Cafe Cầu Giấy",
+    "district": "cau giay",
+    "domain": "food",
+    "expected_parent_ids": ["food_350"]
   },
   {
-    "query": "địa chỉ nhà tù Hỏa Lò",
-    "domain": "travel",
-    "expected_parent_ids": ["travel_002"]
-  },
-  {
-    "query": "Nhà Thờ Lớn Hà Nội mở cửa lúc nào",
-    "domain": "travel",
-    "expected_parent_ids": ["travel_003"]
-  },
-  {
-    "query": "giá vé Đền Ngọc Sơn",
-    "domain": "travel",
-    "expected_parent_ids": ["travel_029"]
-  },
-  {
-    "query": "địa điểm tham quan quanh Hồ Gươm",
-    "domain": "travel",
-    "expected_parent_ids": ["travel_001", "travel_029"]
-  },
-  {
-    "query": "hướng dẫn lập trình Python",
-    "expected_parent_ids": []
+    "query": "Mì Cay Sasin ở Cầu Giấy",
+    "district": "Cầu Giấy",
+    "domain": "food",
+    "expected_parent_ids": ["food_375"]
   },
   {
     "query": "quán sushi ở Ba Vì",
     "district": "Ba Vì",
+    "domain": "food",
     "expected_parent_ids": []
   }
 ]

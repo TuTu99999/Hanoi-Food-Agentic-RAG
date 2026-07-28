@@ -74,7 +74,7 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(
-    title="Hà Nội Travel & Food RAG API",
+    title="Hà Nội Food Agentic RAG API",
     version="2.0.0",
     lifespan=lifespan,
     dependencies=[Depends(validate_csrf_request)],
@@ -103,4 +103,4 @@ app.include_router(health.router)
 
 @app.get("/")
 def root():
-    return {"message": "Chào mừng đến với Hà Nội Travel & Food RAG API!"}
+    return {"message": "Chào mừng đến với Hà Nội Food Agentic RAG API!"}

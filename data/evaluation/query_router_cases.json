@@ -1,0 +1,177 @@
+[
+  {
+    "id": "router-chitchat-001",
+    "text": "alo bạn nghe rõ không",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-chitchat-002",
+    "text": "chào buổi tối nha",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-chitchat-003",
+    "text": "cảm ơn vì đã giúp mình",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-chitchat-004",
+    "text": "bye nhé hẹn gặp lại",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-chitchat-005",
+    "text": "ê m ơi",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-entity-001",
+    "text": "Phở Tư Lùn bán từ mấy giờ vậy",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-entity-002",
+    "text": "t cho xin địa chỉ Xôi Yến",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-entity-003",
+    "text": "Bún riêu Hàng Bông nằm ở quận nào",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-entity-004",
+    "text": "giá một suất tại Chả cá Anh Vũ là bao nhiêu",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-entity-005",
+    "text": "thông tin chi tiết về Cơm Gà Bà Phượng",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-search-001",
+    "text": "lọc quán cơm ở Cầu Giấy giá tối đa 80 nghìn",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-search-002",
+    "text": "khu Tây Hồ có hàng pizza nào mở khuya",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-search-003",
+    "text": "cho t kiếm chỗ ăn sáng ở Ba Đình",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-search-004",
+    "text": "tim cafe tai hoan kiem gia re",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-search-005",
+    "text": "danh sách quán lẩu ở Hai Bà Trưng",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-recommend-001",
+    "text": "chọn hộ mình nơi ăn kỷ niệm lãng mạn",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-recommend-002",
+    "text": "quán cafe nào đáng ghé để ngồi học",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-recommend-003",
+    "text": "tư vấn chỗ ăn ngon cho nhóm đông người",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-recommend-004",
+    "text": "m recommend món nào ngon bổ rẻ",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-recommend-005",
+    "text": "đi cùng trẻ em thì ăn ở đâu hợp",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-compare-001",
+    "text": "Phở Thìn hay Phở Tư Lùn có giá mềm hơn",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-compare-002",
+    "text": "đem Xôi Yến và Bánh mì dân tổ ra so giúp mình",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-compare-003",
+    "text": "Cộng cafe với Gác Trịnh nơi nào đóng muộn",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-compare-004",
+    "text": "khác biệt giữa Chả cá Lã Vọng và Chả cá Anh Vũ",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-compare-005",
+    "text": "nen chon Chops hay Pizza 4Ps",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-planning-001",
+    "text": "sắp lịch ba bữa ăn ở Hoàn Kiếm với 700 nghìn",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-planning-002",
+    "text": "tao itinerary am thuc mot ngay cho 2 nguoi",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-planning-003",
+    "text": "giúp mình phân bổ 500k để đi ăn ba nơi",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-planning-004",
+    "text": "xây tuyến ăn sáng rồi cafe và ăn trưa",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-planning-005",
+    "text": "lên chương trình khám phá món Hà Nội cuối tuần này",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-out-001",
+    "text": "giúp mình sửa hàm React bị lỗi",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-out-002",
+    "text": "kết quả bóng đá tối qua",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-out-003",
+    "text": "soạn CV xin việc bằng tiếng Anh",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-out-004",
+    "text": "dạy tôi cách dùng Excel",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-out-005",
+    "text": "giá vàng hiện tại bao nhiêu",
+    "expected_intent": "out_of_scope"
+  }
+]

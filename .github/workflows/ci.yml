@@ -1,0 +1,154 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - main
+      - "feature/**"
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16.4-alpine
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      APP_ENV: test
+      DATABASE_URL: sqlite://
+      JWT_SECRET_KEY: ci-test-secret-not-for-production
+      GITHUB_TOKEN: ci-test-token-not-a-real-credential
+      CORS_ORIGINS: http://localhost:3000
+      AUTH_COOKIE_SECURE: "false"
+      AUTH_COOKIE_SAMESITE: lax
+      DB_SCHEMA_CHECK: "false"
+      EMBEDDING_LOCAL_FILES_ONLY: "true"
+      LOG_LEVEL: WARNING
+      TORCH_VERSION: 2.13.0+cpu
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install \
+            --index-url https://download.pytorch.org/whl/cpu \
+            "torch==$TORCH_VERSION"
+          python -m pip install -r requirements.txt
+
+      - name: Check Python syntax
+        run: >-
+          python -m compileall -q
+          core database embedding evals rag routers schemas services tests
+          main.py eval_ragas.py eval_deepeval.py
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Validate ML router benchmark
+        run: python -m rag.evaluate_query_router --min-accuracy 0.80
+
+      - name: Test migrations on PostgreSQL
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+          RUN_P0_POSTGRES_MIGRATION_TEST: "1"
+        run: python -m unittest tests.test_p0_migration_postgres -v
+
+  frontend:
+    name: Frontend test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run frontend unit tests
+        run: npm test
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Build frontend
+        run: npm run build
+
+  docker:
+    name: Build ${{ matrix.component }} image
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    needs: [backend, frontend]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: backend
+            context: .
+            file: Dockerfile
+          - component: frontend
+            context: frontend
+            file: frontend/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Validate Compose files
+        if: matrix.component == 'backend'
+        env:
+          GITHUB_TOKEN: compose-test-token
+          POSTGRES_PASSWORD: compose-test-password
+          BACKEND_IMAGE: ghcr.io/example/hanoi-food-backend:test
+          FRONTEND_IMAGE: ghcr.io/example/hanoi-food-frontend:test
+          DATABASE_URL: postgresql://postgres:compose-test-password@postgres:5432/hanoi_food
+          JWT_SECRET_KEY: compose-test-secret-at-least-32-bytes
+          PUBLIC_ORIGIN: https://food.example.com
+          QDRANT_API_KEY: compose-test-qdrant-key
+        run: |
+          docker compose -f compose.yml config --quiet
+          docker compose -f compose.prod.yml config --quiet
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}

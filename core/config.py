@@ -122,7 +122,7 @@ def _validate_http_url(name: str, value: str) -> None:
 
 
 def _get_qdrant_connection() -> tuple[str, int, str]:
-    host = os.getenv("QDRANT_HOST", "localhost").strip()
+    host = os.getenv("QDRANT_HOST", "127.0.0.1").strip()
     configured_url = os.getenv("QDRANT_URL", "").strip().rstrip("/")
     if configured_url:
         return host, 6333, configured_url
@@ -191,13 +191,21 @@ class Settings:
     )
     QDRANT_COLLECTION: str = os.getenv(
         "QDRANT_COLLECTION",
-        "hanoi_knowledge_current",
+        "hanoi_food_current",
     ).strip()
     QDRANT_TIMEOUT_SECONDS: float = _get_float_env(
         "QDRANT_TIMEOUT_SECONDS",
-        5.0,
+        1.0,
     )
     RAG_MIN_SCORE: float = _get_float_env("RAG_MIN_SCORE", 0.5)
+    FOOD_CATALOG_PATH: str = os.getenv(
+        "FOOD_CATALOG_PATH",
+        "data/processed/food_chunks.json",
+    ).strip()
+    QUERY_ROUTER_CONFIDENCE: float = _get_float_env(
+        "QUERY_ROUTER_CONFIDENCE",
+        0.35,
+    )
 
     EXTERNAL_RETRY_ATTEMPTS: int = _get_int_env(
         "EXTERNAL_RETRY_ATTEMPTS",
@@ -315,6 +323,14 @@ def _validate_settings(config: Settings) -> None:
     if not 0 <= config.RAG_MIN_SCORE <= 1:
         raise ConfigurationError(
             "[Lỗi Cấu Hình] RAG_MIN_SCORE phải nằm trong khoảng 0 đến 1."
+        )
+    if not config.FOOD_CATALOG_PATH:
+        raise ConfigurationError(
+            "[Lỗi Cấu Hình] FOOD_CATALOG_PATH không được để trống."
+        )
+    if not 0 <= config.QUERY_ROUTER_CONFIDENCE <= 1:
+        raise ConfigurationError(
+            "[Lỗi Cấu Hình] QUERY_ROUTER_CONFIDENCE phải nằm trong khoảng 0 đến 1."
         )
     if config.QDRANT_TIMEOUT_SECONDS <= 0:
         raise ConfigurationError(

@@ -3,71 +3,71 @@
     "id": "rag-food-address-001",
     "question": "Phở Thìn Bờ Hồ nằm ở đâu?",
     "district": "Hoàn Kiếm",
-    "expected_facts": [
-      "61 Đinh Tiên Hoàng",
-      "Hoàn Kiếm"
-    ]
+    "reference": "Phở Thìn Bờ Hồ nằm tại 61 Đinh Tiên Hoàng, quận Hoàn Kiếm.",
+    "expected_facts": ["61 Đinh Tiên Hoàng", "Hoàn Kiếm"]
   },
   {
     "id": "rag-food-hours-003",
     "question": "Cà phê Giảng mở cửa lúc nào?",
     "district": "hoan kiem",
-    "expected_facts": [
-      "07:00",
-      "22:00"
-    ]
+    "reference": "Cà phê Giảng mở cửa từ 07:00 đến 22:00.",
+    "expected_facts": ["07:00", "22:00"]
   },
   {
     "id": "rag-food-location-025",
     "question": "Cho tôi vị trí Bánh mì sốt vang Đình Ngang.",
     "district": "Hoàn Kiếm",
-    "expected_facts": [
-      "252 Hàng Bông",
-      "Đình Ngang"
-    ]
+    "reference": "Quán nằm tại 252 Hàng Bông, gần Đình Ngang, quận Hoàn Kiếm.",
+    "expected_facts": ["252 Hàng Bông", "Đình Ngang"]
+  },
+  {
+    "id": "rag-food-price-075",
+    "question": "Cơm Gà Gia Trần 1 có giá bao nhiêu?",
+    "district": "Hoàn Kiếm",
+    "reference": "Cơm Gà Gia Trần 1 có giá từ 20.000đ đến 45.000đ.",
+    "expected_facts": ["20.000đ", "45.000đ"]
   },
   {
     "id": "rag-food-price-184",
     "question": "Bún Bò Huế Ngọc Diệp có giá bao nhiêu?",
     "district": "Ba Đình",
-    "expected_facts": [
-      "20.000đ",
-      "50.000đ"
-    ]
+    "reference": "Bún Bò Huế Ngọc Diệp có giá từ 20.000đ đến 50.000đ.",
+    "expected_facts": ["20.000đ", "50.000đ"]
   },
   {
-    "id": "rag-travel-address-002",
-    "question": "Địa chỉ Nhà tù Hỏa Lò ở đâu?",
-    "domain": "travel",
-    "expected_facts": [
-      "1 Phố Hỏa Lò",
-      "Hoàn Kiếm"
-    ]
+    "id": "rag-food-hours-250",
+    "question": "The Sushi Club Tây Hồ mở cửa tới mấy giờ?",
+    "district": "Tây Hồ",
+    "reference": "The Sushi Club Tây Hồ mở cửa từ 11:00 đến 22:30.",
+    "expected_facts": ["11:00", "22:30"]
   },
   {
-    "id": "rag-travel-hours-003",
-    "question": "Nhà Thờ Lớn Hà Nội mở cửa lúc nào?",
-    "domain": "travel",
-    "expected_facts": [
-      "08:00",
-      "20:00"
-    ]
+    "id": "rag-food-price-315",
+    "question": "GangnamBox The Loop IPH có mức giá nào?",
+    "district": "Cầu Giấy",
+    "reference": "GangnamBox The Loop IPH có giá từ 150.000đ đến 400.000đ.",
+    "expected_facts": ["150.000đ", "400.000đ"]
   },
   {
-    "id": "rag-travel-price-029",
-    "question": "Vé vào Đền Ngọc Sơn giá bao nhiêu?",
-    "domain": "travel",
-    "expected_facts": [
-      "30.000đ",
-      "người lớn"
-    ]
+    "id": "rag-food-hours-375",
+    "question": "Mì Cay Sasin Cầu Giấy đóng cửa lúc nào?",
+    "district": "Cầu Giấy",
+    "reference": "Mì Cay Sasin Cầu Giấy mở cửa từ 10:00 và đóng cửa lúc 22:30.",
+    "expected_facts": ["10:00", "22:30"]
   },
   {
     "id": "rag-negative-001",
     "question": "Hướng dẫn tôi lập trình Python.",
-    "expected_facts": [
-      "không tìm thấy thông tin"
-    ],
+    "reference": "Hệ thống chỉ hỗ trợ tư vấn ẩm thực Hà Nội và phải từ chối câu hỏi lập trình.",
+    "expected_facts": ["chỉ hỗ trợ", "ẩm thực"],
+    "expect_no_context": true
+  },
+  {
+    "id": "rag-hard-filter-001",
+    "question": "Tìm quán sushi ở Ba Vì.",
+    "district": "Ba Vì",
+    "reference": "Không tìm thấy quán sushi ở Ba Vì trong dữ liệu; không được tự nới điều kiện hoặc bịa quán.",
+    "expected_facts": ["không tìm thấy", "nới điều kiện"],
     "expect_no_context": true
   }
 ]

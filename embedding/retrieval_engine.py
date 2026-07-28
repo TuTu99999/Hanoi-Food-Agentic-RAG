@@ -1,32 +1,53 @@
+import json
+import logging
 import os
-import re
-import unicodedata
-from difflib import SequenceMatcher
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
-from qdrant_client.models import FieldCondition, Filter, MatchValue
+from qdrant_client.models import FieldCondition, Filter, MatchValue, Range
 from sentence_transformers import SentenceTransformer
 
-from core.resilience import CircuitBreaker, call_with_retry
+from core.resilience import (
+    CircuitBreaker,
+    CircuitOpenError,
+    call_with_retry,
+    is_retryable_error,
+)
+from embedding.catalog_schema import (
+    is_open_at,
+    parse_opening_hours,
+    parse_price_range,
+)
+from embedding.lexical_index import LexicalIndex
+from embedding.text_utils import field_match_score, normalize_text
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(PROJECT_ROOT / ".env")
+logger = logging.getLogger(__name__)
 DEFAULT_COLLECTION_ALIAS = os.getenv(
     "QDRANT_COLLECTION",
-    "hanoi_knowledge_current",
+    "hanoi_food_current",
+)
+DEFAULT_CATALOG_PATH = Path(
+    os.getenv(
+        "FOOD_CATALOG_PATH",
+        str(PROJECT_ROOT / "data" / "processed" / "food_chunks.json"),
+    )
 )
 DEFAULT_MIN_SCORE = 0.5
 STRONG_TITLE_MATCH = 0.82
+EXACT_SHORTCUT_SCORE = 0.98
+RRF_K = 60
 EMBEDDING_MODEL = os.getenv(
     "EMBEDDING_MODEL",
     "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
 )
 DEFAULT_QDRANT_TIMEOUT = float(
-    os.getenv("QDRANT_TIMEOUT_SECONDS", "5")
+    os.getenv("QDRANT_TIMEOUT_SECONDS", "1")
 )
 DEFAULT_RETRY_ATTEMPTS = int(
     os.getenv("EXTERNAL_RETRY_ATTEMPTS", "3")
@@ -49,20 +70,19 @@ DEFAULT_LOCAL_FILES_ONLY = os.getenv(
 ).strip().lower() in {"1", "true", "yes", "on"}
 
 
-def normalize_text(value: Optional[str]) -> str:
-    """Normalize Vietnamese text for exact filters and simple matching."""
-    if not value:
-        return ""
+@dataclass
+class RetrievalResult:
+    documents: List[Dict[str, Any]]
+    candidate_count: int
+    accepted_count: int
+    filter_match_count: Optional[int]
+    branch_counts: Dict[str, int] = field(default_factory=dict)
+    branch_errors: List[str] = field(default_factory=list)
+    exact_shortcut_used: bool = False
 
-    normalized = unicodedata.normalize("NFD", value.lower())
-    normalized = "".join(
-        character
-        for character in normalized
-        if unicodedata.category(character) != "Mn"
-    )
-    normalized = normalized.replace("đ", "d")
-    normalized = re.sub(r"[^a-z0-9]+", " ", normalized)
-    return " ".join(normalized.split())
+
+class RetrievalConfigurationError(RuntimeError):
+    pass
 
 
 class RetrievalEngine:
@@ -81,6 +101,7 @@ class RetrievalEngine:
         circuit_failure_threshold: int = DEFAULT_CIRCUIT_FAILURES,
         circuit_reset_seconds: float = DEFAULT_CIRCUIT_RESET_SECONDS,
         local_files_only: bool = DEFAULT_LOCAL_FILES_ONLY,
+        catalog_path: Path | str = DEFAULT_CATALOG_PATH,
     ):
         configured_url = (
             qdrant_url
@@ -99,7 +120,10 @@ class RetrievalEngine:
                 timeout=timeout_seconds,
             )
         else:
-            host = qdrant_host or os.getenv("QDRANT_HOST", "localhost").strip()
+            host = qdrant_host or os.getenv(
+                "QDRANT_HOST",
+                "127.0.0.1",
+            ).strip()
             port = (
                 qdrant_port
                 if qdrant_port is not None
@@ -123,6 +147,16 @@ class RetrievalEngine:
             failure_threshold=circuit_failure_threshold,
             reset_seconds=circuit_reset_seconds,
         )
+        resolved_catalog_path = Path(catalog_path)
+        if not resolved_catalog_path.is_absolute():
+            resolved_catalog_path = PROJECT_ROOT / resolved_catalog_path
+        self.lexical_index = self._load_lexical_index(
+            resolved_catalog_path,
+        )
+        if self.lexical_index is None:
+            raise RetrievalConfigurationError(
+                "Food catalog is required for hybrid retrieval."
+            )
 
     def search(
         self,
@@ -131,31 +165,193 @@ class RetrievalEngine:
         district_filter: Optional[str] = None,
         domain_filter: Optional[str] = None,
         category_filter: Optional[str] = None,
+        price_max_filter: Optional[int] = None,
+        open_at_filter: Optional[str] = None,
         min_score: float = DEFAULT_MIN_SCORE,
         collection_name: Optional[str] = None,
+        search_modes: Optional[tuple[str, ...]] = None,
+        allow_exact_shortcut: bool = False,
     ) -> List[Dict[str, Any]]:
+        return self.search_with_metadata(
+            query=query,
+            top_k=top_k,
+            district_filter=district_filter,
+            domain_filter=domain_filter,
+            category_filter=category_filter,
+            price_max_filter=price_max_filter,
+            open_at_filter=open_at_filter,
+            min_score=min_score,
+            collection_name=collection_name,
+            search_modes=search_modes,
+            allow_exact_shortcut=allow_exact_shortcut,
+        ).documents
+
+    def search_with_metadata(
+        self,
+        query: str,
+        top_k: int = 3,
+        district_filter: Optional[str] = None,
+        domain_filter: Optional[str] = "food",
+        category_filter: Optional[str] = None,
+        price_max_filter: Optional[int] = None,
+        open_at_filter: Optional[str] = None,
+        min_score: float = DEFAULT_MIN_SCORE,
+        collection_name: Optional[str] = None,
+        search_modes: Optional[tuple[str, ...]] = None,
+        allow_exact_shortcut: bool = False,
+    ) -> RetrievalResult:
         """
-        Search semantic candidates, filter weak results, then rerank by
-        title and address. The default collection name is a Qdrant alias.
+        Run independent exact, BM25 and semantic branches, then fuse ranks.
+
+        Food is enforced at this tool boundary so a planner cannot
+        accidentally mix travel documents into the answer.
         """
         query = query.strip()
         if not query:
-            return []
+            return RetrievalResult([], 0, 0, 0)
         if top_k <= 0:
             raise ValueError("top_k must be greater than zero.")
         if not -1 <= min_score <= 1:
             raise ValueError("min_score must be between -1 and 1.")
+        if price_max_filter is not None and price_max_filter <= 0:
+            raise ValueError("price_max_filter must be greater than zero.")
+        if domain_filter and normalize_text(domain_filter) != "food":
+            raise ValueError("This retrieval engine only supports food data.")
+
+        modes = search_modes or ("exact", "keyword", "semantic")
+        allowed_modes = {"exact", "keyword", "semantic"}
+        if not modes or any(mode not in allowed_modes for mode in modes):
+            raise ValueError("search_modes contains an unsupported mode.")
+
+        lexical_index = getattr(self, "lexical_index", None)
+        filter_match_count = (
+            lexical_index.count_matching_filters(
+                district=district_filter,
+                category=category_filter,
+                price_max=price_max_filter,
+                open_at=open_at_filter,
+            )
+            if lexical_index is not None
+            else None
+        )
+        result_groups: dict[str, list[dict[str, Any]]] = {}
+        branch_errors: list[str] = []
+        semantic_candidate_count = 0
+
+        if "exact" in modes and lexical_index is not None:
+            result_groups["exact"] = lexical_index.exact_search(
+                query=query,
+                district=district_filter,
+                category=category_filter,
+                price_max=price_max_filter,
+                open_at=open_at_filter,
+                limit=max(top_k * 3, 10),
+            )
+
+            exact_results = result_groups["exact"]
+            strong_exact_results = [
+                document
+                for document in exact_results
+                if document["exact_score"] >= EXACT_SHORTCUT_SCORE
+            ]
+            if (
+                allow_exact_shortcut
+                and len(strong_exact_results) == 1
+            ):
+                documents = self._fuse_rankings(
+                    {"exact": strong_exact_results},
+                    top_k=top_k,
+                )
+                return RetrievalResult(
+                    documents=documents,
+                    candidate_count=len(exact_results),
+                    accepted_count=len(documents),
+                    filter_match_count=filter_match_count,
+                    branch_counts={"exact": len(exact_results)},
+                    exact_shortcut_used=True,
+                )
+
+        if "keyword" in modes and lexical_index is not None:
+            result_groups["keyword"] = lexical_index.keyword_search(
+                query=query,
+                district=district_filter,
+                category=category_filter,
+                price_max=price_max_filter,
+                open_at=open_at_filter,
+                limit=max(top_k * 5, 20),
+            )
+
+        if "semantic" in modes:
+            try:
+                semantic_results, semantic_candidate_count = (
+                    self._semantic_search(
+                        query=query,
+                        top_k=max(top_k * 4, 20),
+                        district_filter=district_filter,
+                        category_filter=category_filter,
+                        price_max_filter=price_max_filter,
+                        open_at_filter=open_at_filter,
+                        min_score=min_score,
+                        collection_name=collection_name,
+                    )
+                )
+                result_groups["semantic"] = semantic_results
+            except Exception as exc:
+                if (
+                    not isinstance(exc, CircuitOpenError)
+                    and not is_retryable_error(exc)
+                ):
+                    raise
+                branch_errors.append("semantic")
+                logger.warning(
+                    "Semantic retrieval branch is unavailable.",
+                    extra={"error_type": type(exc).__name__},
+                )
+
+        documents = self._fuse_rankings(result_groups, top_k=top_k)
+        branch_counts = {
+            branch: len(results)
+            for branch, results in result_groups.items()
+        }
+        candidate_count = (
+            semantic_candidate_count
+            + sum(
+                count
+                for branch, count in branch_counts.items()
+                if branch != "semantic"
+            )
+        )
+        return RetrievalResult(
+            documents=documents,
+            candidate_count=candidate_count,
+            accepted_count=len(documents),
+            filter_match_count=filter_match_count,
+            branch_counts=branch_counts,
+            branch_errors=branch_errors,
+        )
+
+    def _semantic_search(
+        self,
+        query: str,
+        top_k: int,
+        district_filter: Optional[str],
+        category_filter: Optional[str],
+        price_max_filter: Optional[int],
+        open_at_filter: Optional[str],
+        min_score: float,
+        collection_name: Optional[str],
+    ) -> tuple[List[Dict[str, Any]], int]:
+        """Search the existing dense Qdrant branch."""
 
         query_vector = self.model.encode(query).tolist()
         search_filter = self._build_filter(
             district=district_filter,
-            domain=domain_filter,
+            domain="food",
             category=category_filter,
+            price_max=price_max_filter,
         )
 
-        # More candidates give the lightweight lexical reranker room to fix
-        # small spelling mistakes without adding another search service.
-        candidate_limit = min(max(top_k * 20, 100), 200)
+        candidate_limit = min(max(top_k * 2, 40), 80)
         raw_results = call_with_retry(
             lambda: self.client.search(
                 collection_name=collection_name or self.collection_name,
@@ -163,8 +359,9 @@ class RetrievalEngine:
                 query_filter=search_filter,
                 limit=candidate_limit,
                 with_payload=True,
+                score_threshold=min_score,
             ),
-            attempts=self.retry_attempts,
+            attempts=1,
             base_seconds=self.retry_base_seconds,
             max_seconds=self.retry_max_seconds,
             circuit_breaker=self.circuit_breaker,
@@ -174,11 +371,17 @@ class RetrievalEngine:
         for hit in raw_results:
             semantic_score = float(hit.score)
             document = self._to_document(hit.payload or {}, semantic_score)
-            title_match_score = self._field_match_score(
+            if not self._matches_structured_filters(
+                document,
+                price_max_filter=price_max_filter,
+                open_at_filter=open_at_filter,
+            ):
+                continue
+            title_match_score = field_match_score(
                 query,
                 document["title"],
             )
-            address_match_score = self._field_match_score(
+            address_match_score = field_match_score(
                 query,
                 document["address"],
             )
@@ -199,6 +402,8 @@ class RetrievalEngine:
                 document["score"] + document["match_score"],
                 6,
             )
+            document["semantic_score"] = semantic_score
+            document["retrieval_sources"] = ["semantic"]
             documents.append(document)
 
         documents.sort(
@@ -208,7 +413,116 @@ class RetrievalEngine:
             ),
             reverse=True,
         )
-        return self._group_by_parent(documents)[:top_k]
+        return self._group_by_parent(documents)[:top_k], len(raw_results)
+
+    @staticmethod
+    def _matches_structured_filters(
+        document: Dict[str, Any],
+        *,
+        price_max_filter: Optional[int],
+        open_at_filter: Optional[str],
+    ) -> bool:
+        if price_max_filter is not None:
+            document_price_max = document.get("price_max")
+            if (
+                not isinstance(document_price_max, int)
+                or document_price_max > price_max_filter
+            ):
+                return False
+
+        if open_at_filter and not is_open_at(
+            document.get("opening_intervals"),
+            open_at_filter,
+        ):
+            return False
+
+        return True
+
+    @staticmethod
+    def _load_lexical_index(path: Path) -> Optional[LexicalIndex]:
+        try:
+            index = LexicalIndex.from_json(path)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            logger.warning(
+                "Lexical food index is unavailable; semantic fallback remains active.",
+                extra={"error_type": type(exc).__name__},
+            )
+            return None
+
+        logger.info(
+            "Lexical food index loaded.",
+            extra={"entity_count": len(index.documents)},
+        )
+        return index
+
+    @staticmethod
+    def _fuse_rankings(
+        result_groups: Dict[str, List[Dict[str, Any]]],
+        top_k: int,
+    ) -> List[Dict[str, Any]]:
+        """Fuse branch ranks with RRF so incompatible raw scores are not added."""
+        branch_weights = {
+            "exact": 2.0,
+            "keyword": 1.0,
+            "semantic": 1.0,
+        }
+        fused: Dict[str, Dict[str, Any]] = {}
+
+        for branch, documents in result_groups.items():
+            weight = branch_weights[branch]
+            for rank, document in enumerate(documents, start=1):
+                parent_id = str(
+                    document.get("parent_id")
+                    or document.get("chunk_id")
+                    or f"{branch}:{rank}"
+                )
+                existing = fused.get(parent_id)
+                if existing is None:
+                    existing = document.copy()
+                    existing["retrieval_sources"] = []
+                    existing["ranking_score"] = 0.0
+                    fused[parent_id] = existing
+
+                existing["ranking_score"] += weight / (RRF_K + rank)
+                if branch not in existing["retrieval_sources"]:
+                    existing["retrieval_sources"].append(branch)
+
+                for score_name in (
+                    "semantic_score",
+                    "keyword_score",
+                    "keyword_coverage",
+                    "exact_score",
+                    "match_score",
+                ):
+                    existing[score_name] = max(
+                        float(existing.get(score_name, 0.0) or 0.0),
+                        float(document.get(score_name, 0.0) or 0.0),
+                    )
+                existing["score"] = existing["semantic_score"]
+
+                candidate_content = document.get("content", "")
+                if len(candidate_content) > len(existing.get("content", "")):
+                    existing["content"] = candidate_content
+                    existing["text"] = candidate_content
+                    existing["chunk_ids"] = document.get("chunk_ids", [])
+
+        results = list(fused.values())
+        for document in results:
+            document["ranking_score"] = round(
+                document["ranking_score"],
+                8,
+            )
+
+        results.sort(
+            key=lambda document: (
+                document["ranking_score"],
+                document.get("exact_score", 0.0),
+                document.get("semantic_score", 0.0),
+                document.get("keyword_score", 0.0),
+            ),
+            reverse=True,
+        )
+        return results[:top_k]
 
     def check_ready(self) -> None:
         self.client.get_collection(self.collection_name)
@@ -221,6 +535,7 @@ class RetrievalEngine:
         district: Optional[str],
         domain: Optional[str],
         category: Optional[str],
+        price_max: Optional[int] = None,
     ) -> Optional[Filter]:
         conditions = []
 
@@ -251,6 +566,14 @@ class RetrievalEngine:
                 )
             )
 
+        if price_max is not None:
+            conditions.append(
+                FieldCondition(
+                    key="price_max",
+                    range=Range(lte=price_max),
+                )
+            )
+
         return Filter(must=conditions) if conditions else None
 
     @classmethod
@@ -274,6 +597,8 @@ class RetrievalEngine:
             or payload.get("vector_text", "")
         )
         district = value("district")
+        price_data = parse_price_range(value("price_range"))
+        opening_data = parse_opening_hours(value("opening_hours"))
 
         return {
             "score": score,
@@ -290,7 +615,29 @@ class RetrievalEngine:
             "category": value("category"),
             "sub_category": value("sub_category"),
             "price_range": value("price_range"),
+            "price_min": value("price_min", price_data["price_min"]),
+            "price_max": value("price_max", price_data["price_max"]),
+            "price_currency": value(
+                "price_currency",
+                price_data["price_currency"],
+            ),
+            "price_status": value(
+                "price_status",
+                price_data["price_status"],
+            ),
             "opening_hours": value("opening_hours"),
+            "opening_intervals": value(
+                "opening_intervals",
+                opening_data["opening_intervals"],
+            ),
+            "opening_status": value(
+                "opening_status",
+                opening_data["opening_status"],
+            ),
+            "opening_schedule_scope": value(
+                "opening_schedule_scope",
+                opening_data["opening_schedule_scope"],
+            ),
             "tags": value("tags", []),
             "content": content,
             # Keep "text" during the RAG integration transition.
@@ -388,33 +735,4 @@ class RetrievalEngine:
 
     @staticmethod
     def _field_match_score(query: str, field_value: str) -> float:
-        normalized_query = normalize_text(query)
-        normalized_field = normalize_text(field_value)
-        if not normalized_query or not normalized_field:
-            return 0.0
-
-        if normalized_field in normalized_query:
-            return 1.0
-
-        query_tokens = normalized_query.split()
-        field_tokens = normalized_field.split()
-        if not field_tokens:
-            return 0.0
-
-        matched_tokens = 0
-        for field_token in field_tokens:
-            best_ratio = max(
-                SequenceMatcher(None, field_token, query_token).ratio()
-                for query_token in query_tokens
-            )
-            minimum_ratio = 1.0 if len(field_token) <= 2 else 0.82
-            if best_ratio >= minimum_ratio:
-                matched_tokens += 1
-
-        token_coverage = matched_tokens / len(field_tokens)
-        sequence_ratio = SequenceMatcher(
-            None,
-            normalized_field,
-            normalized_query,
-        ).ratio()
-        return max(token_coverage, sequence_ratio)
+        return field_match_score(query, field_value)
