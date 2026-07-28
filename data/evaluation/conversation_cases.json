@@ -1,0 +1,32 @@
+[
+  {
+    "id": "conversation-budget-direction-001",
+    "scenario": "Người dùng tìm phở bò tại Cầu Giấy và đổi chiều điều kiện giá trong câu hỏi tiếp theo.",
+    "expected_outcome": "Lượt đầu chỉ dùng dữ liệu đáp ứng mức giá 50.000đ đổ về hoặc báo không có. Lượt sau phải hiểu 'đổ lên' là đổi sang mức giá từ 50.000đ trở lên, vẫn giữ món phở bò và quận Cầu Giấy, không bịa quán ngoài retrieval context.",
+    "turns": [
+      {
+        "user_input": "Cho tôi quán phở bò ở quận Cầu Giấy, giá 50k đổ về.",
+        "district": "Cầu Giấy"
+      },
+      {
+        "user_input": "Vậy thì tìm loại 50k đổ lên đi.",
+        "district": "Cầu Giấy"
+      }
+    ]
+  },
+  {
+    "id": "conversation-district-retention-002",
+    "scenario": "Người dùng hỏi quán theo quận rồi hỏi tiếp về giờ mở cửa mà không nhắc lại quận.",
+    "expected_outcome": "Trợ lý phải hiểu lượt sau đang nói về quán từ lượt trước, giữ đúng quận và chỉ trả giờ mở cửa có trong retrieval context.",
+    "turns": [
+      {
+        "user_input": "Cho tôi thông tin Cà phê Giảng ở Hoàn Kiếm.",
+        "district": "Hoàn Kiếm"
+      },
+      {
+        "user_input": "Quán đó mở cửa tới mấy giờ?",
+        "district": "Hoàn Kiếm"
+      }
+    ]
+  }
+]

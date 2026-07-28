@@ -1,6 +1,7 @@
 import argparse
 import json
 import time
+from collections import Counter
 from pathlib import Path
 import sys
 
@@ -25,6 +26,7 @@ def evaluate_threshold(
     cases: list[dict],
     threshold: float,
     top_k: int = 5,
+    search_modes: tuple[str, ...] | None = None,
 ) -> dict:
     passed = 0
     reciprocal_rank_total = 0.0
@@ -34,17 +36,32 @@ def evaluate_threshold(
     district_filter_case_count = 0
     latencies_ms = []
     failures = []
+    branch_error_counts: Counter = Counter()
+    branch_result_counts: Counter = Counter()
+    exact_shortcut_cases = 0
 
     for case in cases:
         started_at = time.perf_counter()
-        results = retriever.search(
-            query=case["query"],
-            top_k=top_k,
-            district_filter=case.get("district"),
-            domain_filter=case.get("domain"),
-            category_filter=case.get("category"),
-            min_score=threshold,
-        )
+        search_arguments = {
+            "query": case["query"],
+            "top_k": top_k,
+            "district_filter": case.get("district"),
+            "domain_filter": case.get("domain"),
+            "category_filter": case.get("category"),
+            "min_score": threshold,
+            "search_modes": search_modes,
+        }
+        if hasattr(retriever, "search_with_metadata"):
+            retrieval_result = retriever.search_with_metadata(
+                **search_arguments
+            )
+            results = retrieval_result.documents
+            branch_error_counts.update(retrieval_result.branch_errors)
+            branch_result_counts.update(retrieval_result.branch_counts)
+            if retrieval_result.exact_shortcut_used:
+                exact_shortcut_cases += 1
+        else:
+            results = retriever.search(**search_arguments)
         latencies_ms.append(
             (time.perf_counter() - started_at) * 1000
         )
@@ -123,6 +140,15 @@ def evaluate_threshold(
             "p95": float(np.percentile(latencies_ms, 95)),
         },
         "estimated_cost_usd": 0.0,
+        "search_modes": list(
+            search_modes or ("exact", "keyword", "semantic")
+        ),
+        "retrieval_health": {
+            "healthy": not branch_error_counts,
+            "branch_errors": dict(branch_error_counts),
+            "branch_result_counts": dict(branch_result_counts),
+            "exact_shortcut_cases": exact_shortcut_cases,
+        },
         "failures": failures,
     }
 
@@ -146,6 +172,12 @@ def main() -> None:
         default=[0.45, 0.5, 0.55],
     )
     parser.add_argument("--top-k", type=int, default=5)
+    parser.add_argument(
+        "--mode",
+        choices=("hybrid", "semantic"),
+        default="hybrid",
+        help="Evaluate the complete hybrid path or only dense semantic search.",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if args.top_k <= 0:
@@ -154,12 +186,17 @@ def main() -> None:
     retriever = RetrievalEngine()
     try:
         cases = load_cases(args.cases)
+        search_modes = {
+            "hybrid": ("exact", "keyword", "semantic"),
+            "semantic": ("semantic",),
+        }[args.mode]
         reports = [
             evaluate_threshold(
                 retriever,
                 cases,
                 threshold,
                 top_k=args.top_k,
+                search_modes=search_modes,
             )
             for threshold in args.thresholds
         ]
@@ -173,8 +210,14 @@ def main() -> None:
                 f"district={report['district_filter_accuracy']:.1%} "
                 f"MRR={report['mrr']:.3f} "
                 f"p95={report['latency_ms']['p95']:.1f}ms "
+                f"healthy={report['retrieval_health']['healthy']} "
                 f"({report['passed']}/{report['total']})"
             )
+            if report["retrieval_health"]["branch_errors"]:
+                print(
+                    "  BRANCH_ERRORS: "
+                    f"{report['retrieval_health']['branch_errors']}"
+                )
             for failure in report["failures"]:
                 print(
                     f"  FAIL: {failure['query']} | "
@@ -182,18 +225,29 @@ def main() -> None:
                     f"actual={failure['actual']}"
                 )
 
-        best_report = max(
-            reports,
-            key=lambda report: (
-                report["accuracy"],
-                report[f"recall_at_{args.top_k}"],
-                report["mrr"],
-            ),
-        )
-        print(
-            "Ngưỡng đề xuất từ bộ đánh giá hiện tại: "
-            f"{best_report['threshold']:.2f}"
-        )
+        healthy_reports = [
+            report
+            for report in reports
+            if report["retrieval_health"]["healthy"]
+        ]
+        if len(healthy_reports) == len(reports):
+            best_report = max(
+                healthy_reports,
+                key=lambda report: (
+                    report["accuracy"],
+                    report[f"recall_at_{args.top_k}"],
+                    report["mrr"],
+                ),
+            )
+            print(
+                "Ngưỡng đề xuất từ bộ đánh giá hiện tại: "
+                f"{best_report['threshold']:.2f}"
+            )
+        else:
+            print(
+                "Không đề xuất threshold vì có retrieval branch bị lỗi. "
+                "Hãy kiểm tra Qdrant rồi chạy lại."
+            )
 
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)

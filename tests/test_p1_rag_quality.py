@@ -88,6 +88,18 @@ class FakeRagRetriever:
             }
         ]
 
+    def search_with_metadata(self, **kwargs):
+        documents = self.search(**kwargs)
+        return SimpleNamespace(
+            documents=documents,
+            candidate_count=len(documents),
+            accepted_count=len(documents),
+            filter_match_count=1,
+            branch_counts={"semantic": len(documents)},
+            branch_errors=[],
+            exact_shortcut_used=False,
+        )
+
 
 class FakeAsyncCompletionStream:
     def __init__(self, deltas):
@@ -184,7 +196,7 @@ class P1RagQualityTests(unittest.TestCase):
 
     def test_processed_data_covers_every_raw_parent(self):
         all_chunk_ids = set()
-        for domain in ("food", "travel"):
+        for domain in ("food",):
             raw_path = PROJECT_ROOT / "data" / "raw" / f"{domain}_raw.json"
             chunk_path = (
                 PROJECT_ROOT / "data" / "processed" / f"{domain}_chunks.json"
@@ -194,9 +206,19 @@ class P1RagQualityTests(unittest.TestCase):
             with chunk_path.open("r", encoding="utf-8") as file:
                 chunks = json.load(file)
 
-            raw_parent_ids = {item["id"] for item in raw_items}
+            raw_parent_ids = {
+                item["id"]
+                for item in raw_items
+                if (
+                    domain != "food"
+                    or normalize_text(item["category"]) == "am thuc"
+                )
+            }
             chunk_parent_ids = {chunk["parent_id"] for chunk in chunks}
             self.assertEqual(chunk_parent_ids, raw_parent_ids)
+            if domain == "food":
+                self.assertEqual(len(chunk_parent_ids), 418)
+                self.assertEqual(len(chunks), 624)
 
             for chunk in chunks:
                 self.assertNotIn(chunk["chunk_id"], all_chunk_ids)
@@ -204,6 +226,12 @@ class P1RagQualityTests(unittest.TestCase):
                 self.assertEqual(chunk["domain"], domain)
                 self.assertIn("district_normalized", chunk)
                 self.assertIn("category_normalized", chunk)
+                if domain == "food":
+                    self.assertIn("sub_category_normalized", chunk)
+                    self.assertIn("tags_normalized", chunk)
+                    self.assertIn("price_min", chunk)
+                    self.assertIn("price_max", chunk)
+                    self.assertIn("opening_intervals", chunk)
 
     def test_retrieval_filters_reranks_and_groups_entities(self):
         results = [
@@ -257,7 +285,7 @@ class P1RagQualityTests(unittest.TestCase):
         retriever = RetrievalEngine.__new__(RetrievalEngine)
         retriever.client = client
         retriever.model = FakeEmbeddingModel()
-        retriever.collection_name = "hanoi_knowledge_current"
+        retriever.collection_name = "hanoi_food_current"
         retriever.retry_attempts = 1
         retriever.retry_base_seconds = 0
         retriever.retry_max_seconds = 0
@@ -292,7 +320,7 @@ class P1RagQualityTests(unittest.TestCase):
         self.assertEqual(filter_values["domain"], "food")
         self.assertEqual(
             client.last_call["collection_name"],
-            "hanoi_knowledge_current",
+            "hanoi_food_current",
         )
 
     def test_normalization_and_point_ids_are_stable(self):
@@ -310,33 +338,63 @@ class P1RagQualityTests(unittest.TestCase):
                     "parent_id": "food_001",
                     "domain": "food",
                     "title": "Phở Thìn",
+                    "title_normalized": "pho thin",
                     "address": "Hà Nội",
+                    "address_normalized": "ha noi",
                     "district": "Hoàn Kiếm",
                     "district_normalized": "hoan kiem",
                     "price_range": "N/A",
+                    "price_min": None,
+                    "price_max": None,
+                    "price_currency": "VND",
+                    "price_status": "unknown",
                     "opening_hours": "N/A",
+                    "opening_intervals": [],
+                    "opening_status": "unknown",
+                    "opening_schedule_scope": "unknown",
                     "category": "Ẩm thực",
                     "category_normalized": "am thuc",
+                    "sub_category": "Phở",
+                    "sub_category_normalized": "pho",
                     "tags": [],
+                    "tags_normalized": [],
                     "description": "Mô tả",
                     "vector_text": "Phở Thìn tại Hà Nội",
                     "vector": [0.1, 0.2, 0.3],
                 },
                 {
-                    "chunk_id": "travel_001_chunk_001",
-                    "parent_id": "travel_001",
-                    "domain": "travel",
-                    "title": "Hồ Hoàn Kiếm",
+                    "chunk_id": "food_001_chunk_002",
+                    "parent_id": "food_001",
+                    "domain": "food",
+                    "title": "Phở Thìn",
+                    "title_normalized": "pho thin",
                     "address": "Hà Nội",
+                    "address_normalized": "ha noi",
                     "district": "Hoàn Kiếm",
                     "district_normalized": "hoan kiem",
-                    "price_range": "Miễn phí",
-                    "opening_hours": "Cả ngày",
-                    "category": "Du lịch",
-                    "category_normalized": "du lich",
+                    "price_range": "60.000đ - 100.000đ",
+                    "price_min": 60000,
+                    "price_max": 100000,
+                    "price_currency": "VND",
+                    "price_status": "known",
+                    "opening_hours": "06:00 - 13:00",
+                    "opening_intervals": [
+                        {
+                            "opens": "06:00",
+                            "closes": "13:00",
+                            "closes_next_day": False,
+                        }
+                    ],
+                    "opening_status": "known",
+                    "opening_schedule_scope": "daily_assumed",
+                    "category": "Ẩm thực",
+                    "category_normalized": "am thuc",
+                    "sub_category": "Phở",
+                    "sub_category_normalized": "pho",
                     "tags": [],
+                    "tags_normalized": [],
                     "description": "Mô tả",
-                    "vector_text": "Hồ Hoàn Kiếm tại Hà Nội",
+                    "vector_text": "Phở Thìn tại Hà Nội",
                     "vector": [0.4, 0.5, 0.6],
                 },
             ]
@@ -376,7 +434,7 @@ class P1RagQualityTests(unittest.TestCase):
                 delta
                 async for delta in pipeline.stream(
                     user_question="Quán đó ở đâu?",
-                    collection_name="hanoi_knowledge_current",
+                    collection_name="hanoi_food_current",
                     district="Hoàn Kiếm",
                     history=history,
                 )
@@ -415,7 +473,7 @@ class P1RagQualityTests(unittest.TestCase):
         qdrant_client.assert_called_once_with(
             url="http://qdrant:6333",
             api_key="test-key",
-            timeout=5.0,
+            timeout=1.0,
         )
         sentence_transformer.assert_called_once_with(
             "test-embedding-model",
@@ -442,7 +500,7 @@ class P1RagQualityTests(unittest.TestCase):
         qdrant_client.assert_called_once_with(
             url="http://qdrant:6333",
             api_key="environment-key",
-            timeout=5.0,
+            timeout=1.0,
         )
 
     def test_rag_clients_use_application_settings(self):

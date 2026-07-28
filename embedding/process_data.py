@@ -2,11 +2,16 @@ import argparse
 import json
 import os
 import re
-import unicodedata
 from pathlib import Path
 
 from dotenv import load_dotenv
 from transformers import AutoTokenizer
+
+from embedding.catalog_schema import (
+    parse_opening_hours,
+    parse_price_range,
+)
+from embedding.text_utils import normalize_text
 
 
 load_dotenv()
@@ -17,17 +22,13 @@ MODEL_NAME = os.getenv(
 )
 MAX_CHUNK_TOKENS = 90
 OVERLAP_TOKENS = 15
+FOOD_CATEGORY_NORMALIZED = "am thuc"
 
 DATASETS = (
     {
         "domain": "food",
         "input": PROJECT_ROOT / "data" / "raw" / "food_raw.json",
         "output": PROJECT_ROOT / "data" / "processed" / "food_chunks.json",
-    },
-    {
-        "domain": "travel",
-        "input": PROJECT_ROOT / "data" / "raw" / "travel_raw.json",
-        "output": PROJECT_ROOT / "data" / "processed" / "travel_chunks.json",
     },
 )
 
@@ -54,11 +55,7 @@ def clean_text(value):
 
 def normalize_for_filter(value):
     """Normalize Vietnamese text for exact Qdrant filters and reranking."""
-    normalized = unicodedata.normalize("NFD", clean_text(value).casefold())
-    normalized = "".join(char for char in normalized if not unicodedata.combining(char))
-    normalized = normalized.replace("đ", "d")
-    normalized = re.sub(r"[^a-z0-9]+", " ", normalized)
-    return " ".join(normalized.split())
+    return normalize_text(clean_text(value))
 
 
 def count_tokens(tokenizer, text):
@@ -203,9 +200,17 @@ def build_chunks(items, domain, tokenizer, max_tokens, overlap_tokens):
 
     for item_index, raw_item in enumerate(items):
         validate_item(raw_item, domain, item_index)
+        if (
+            domain == "food"
+            and normalize_for_filter(raw_item["category"])
+            != FOOD_CATEGORY_NORMALIZED
+        ):
+            continue
 
         item = {key: clean_text(raw_item[key]) for key in REQUIRED_FIELDS if key != "tags"}
         item["tags"] = [clean_text(tag) for tag in raw_item["tags"] if clean_text(tag)]
+        price_data = parse_price_range(item["price_range"])
+        opening_data = parse_opening_hours(item["opening_hours"])
 
         parent_id = item["id"]
         if parent_id in parent_ids:
@@ -252,11 +257,20 @@ def build_chunks(items, domain, tokenizer, max_tokens, overlap_tokens):
                     "district": item["district"],
                     "district_normalized": normalize_for_filter(item["district"]),
                     "price_range": item["price_range"],
+                    **price_data,
                     "opening_hours": item["opening_hours"],
+                    **opening_data,
                     "category": item["category"],
                     "category_normalized": normalize_for_filter(item["category"]),
                     "sub_category": item["sub_category"],
+                    "sub_category_normalized": normalize_for_filter(
+                        item["sub_category"]
+                    ),
                     "tags": item["tags"],
+                    "tags_normalized": [
+                        normalize_for_filter(tag)
+                        for tag in item["tags"]
+                    ],
                     "description": description,
                     "vector_text": vector_text,
                 }
@@ -301,7 +315,7 @@ def process_dataset(dataset, tokenizer, max_tokens, overlap_tokens, dry_run=Fals
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Create token-aware chunks for all food and travel data."
+        description="Create token-aware chunks for the food catalog."
     )
     parser.add_argument("--model", default=MODEL_NAME)
     parser.add_argument("--max-tokens", type=int, default=MAX_CHUNK_TOKENS)

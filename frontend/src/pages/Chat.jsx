@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, Plus } from 'lucide-react';
 import { ChatMessage } from '../components/ChatMessage';
 import { useAuth } from '../context/AuthContext';
+import { DEFAULT_DISTRICT, useChat } from '../context/ChatContext';
 import { apiFetch, toApiError } from '../lib/api';
 
 const STREAM_IDLE_TIMEOUT_MS = 40000;
@@ -65,19 +66,24 @@ const parseSseFrame = (frame) => {
 };
 
 export const Chat = () => {
-  const [messages, setMessages] = useState([
-    {
-      clientId: 'welcome',
-      role: 'assistant',
-      content: 'Xin chào! Tớ là trợ lý tư vấn địa điểm du lịch & ẩm thực Hà Nội. Bạn đang tìm quán ăn hay địa điểm ở khu vực nào?',
-    }
-  ]);
-  const [input, setInput] = useState('');
-  const [district, setDistrict] = useState('Tất cả');
-  const [sessionId, setSessionId] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const {
+    messages,
+    setMessages,
+    input,
+    setInput,
+    district,
+    setDistrict,
+    sessionId,
+    setSessionId,
+    isLoading,
+    setIsLoading,
+    isRestoring,
+    restoreError,
+    restoreSession,
+    clearChat,
+    activeRequestRef,
+  } = useChat();
   const messagesEndRef = useRef(null);
-  const activeRequestRef = useRef(null);
   const { markUnauthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -89,13 +95,25 @@ export const Chat = () => {
     scrollToBottom();
   }, [messages]);
 
-  useEffect(() => () => {
-    activeRequestRef.current?.abort();
-  }, []);
+  useEffect(() => {
+    if (isLoading) return undefined;
+
+    const controller = new AbortController();
+    restoreSession({ signal: controller.signal });
+    return () => controller.abort();
+  }, [isLoading, restoreSession]);
 
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (
+      !input.trim()
+      || isLoading
+      || isRestoring
+      || restoreError
+      || activeRequestRef.current
+    ) {
+      return;
+    }
 
     const userText = input.trim();
     setInput('');
@@ -129,7 +147,7 @@ export const Chat = () => {
         body: JSON.stringify({ 
           session_id: sessionId,
           question: userText,
-          district: district === 'Tất cả' ? null : district,
+          district: district === DEFAULT_DISTRICT ? null : district,
         }),
       });
 
@@ -189,7 +207,9 @@ export const Chat = () => {
         ).toLowerCase();
 
         if (payload?.session_id !== undefined && payload?.session_id !== null) {
-          setSessionId(payload.session_id);
+          if (!setSessionId(payload.session_id)) {
+            throw new Error('Máy chủ trả về session ID không hợp lệ.');
+          }
         }
 
         if (eventType === 'session') {
@@ -295,21 +315,56 @@ export const Chat = () => {
       {/* Thanh lọc khu vực */}
       <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-2 flex items-center justify-between text-xs shadow-sm">
         <span className="text-slate-500 dark:text-slate-400 font-medium">Lọc khu vực:</span>
-        <select 
-          value={district} 
-          onChange={(e) => setDistrict(e.target.value)}
-          className="bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg px-3 py-1.5 outline-none border border-slate-200 dark:border-slate-600 focus:border-red-500 transition cursor-pointer font-medium"
-        >
-          {HANOI_DISTRICTS.map((item) => (
-            <option key={item} value={item}>
-              {item === "Tất cả" ? "Tất cả quận/huyện" : item}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => clearChat()}
+            disabled={isLoading}
+            aria-label="Bắt đầu cuộc trò chuyện mới"
+            className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 font-medium text-red-600 hover:bg-red-50 dark:hover:bg-slate-700 disabled:opacity-50 transition"
+          >
+            <Plus size={14} />
+            <span className="hidden sm:inline">Cuộc trò chuyện mới</span>
+          </button>
+          <select
+            value={district}
+            onChange={(e) => setDistrict(e.target.value)}
+            className="bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg px-3 py-1.5 outline-none border border-slate-200 dark:border-slate-600 focus:border-red-500 transition cursor-pointer font-medium"
+          >
+            {HANOI_DISTRICTS.map((item) => (
+              <option key={item} value={item}>
+                {item === DEFAULT_DISTRICT ? 'Tất cả quận/huyện' : item}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      {restoreError && (
+        <div
+          role="alert"
+          className="mx-auto mt-3 flex w-[calc(100%-2rem)] max-w-4xl items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+        >
+          <span>{restoreError}</span>
+          <button
+            type="button"
+            onClick={() => restoreSession()}
+            disabled={isRestoring}
+            className="shrink-0 font-semibold underline disabled:opacity-50"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
 
       {/* Khung tin nhắn */}
       <div className="flex-1 overflow-y-auto p-4 max-w-4xl mx-auto w-full">
+        {isRestoring && (
+          <div className="flex items-center justify-center gap-2 py-3 text-xs text-slate-500 dark:text-slate-400">
+            <Loader2 className="animate-spin" size={15} />
+            Đang khôi phục cuộc trò chuyện...
+          </div>
+        )}
         {messages.map((msg) => (
           <ChatMessage key={msg.clientId || msg.id} message={msg} />
         ))}
@@ -323,15 +378,18 @@ export const Chat = () => {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            disabled={isRestoring || Boolean(restoreError)}
             placeholder="Hỏi về địa điểm, món ăn Hà Nội..."
             className="flex-1 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-red-500 transition"
           />
           <button 
             type="submit" 
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || isRestoring || Boolean(restoreError) || !input.trim()}
             className="bg-red-600 hover:bg-red-500 text-white px-5 py-3 rounded-xl transition disabled:opacity-50 flex items-center gap-2 shadow-md"
           >
-            {isLoading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
+            {isLoading || isRestoring
+              ? <Loader2 className="animate-spin" size={18} />
+              : <Send size={18} />}
           </button>
         </form>
       </div>

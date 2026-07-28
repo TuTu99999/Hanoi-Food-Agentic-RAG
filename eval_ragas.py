@@ -1,266 +1,223 @@
+from __future__ import annotations
+
 import argparse
 import asyncio
 import json
-import re
-import unicodedata
 from pathlib import Path
+import sys
+from typing import Any
 
-import numpy as np
+from openai import AsyncOpenAI
 
 from core.config import settings
-from core.resilience import call_with_retry
+from evals.common import (
+    DEFAULT_RAG_CASES,
+    collect_record,
+    evaluation_metadata,
+    failed_ragas_metrics,
+    load_cases,
+    mean,
+    save_report,
+)
 from rag.Rag import RAGPipeline
 
 
-DEFAULT_CASES = Path("data/evaluation/rag_cases.json")
-JUDGE_INSTRUCTION = (
-    "Bạn là bộ chấm faithfulness cho hệ thống RAG. "
-    "Chỉ đánh giá câu trả lời có được hỗ trợ bởi context hay không. "
-    "Trả về đúng JSON dạng {\"faithfulness\": 0.0}. "
-    "Điểm nằm trong khoảng 0 đến 1, không thêm nội dung khác."
-)
-
-
-def normalize_text(value: str) -> str:
-    normalized = unicodedata.normalize("NFD", value.lower())
-    normalized = "".join(
-        character
-        for character in normalized
-        if unicodedata.category(character) != "Mn"
-    )
-    normalized = normalized.replace("đ", "d")
-    return " ".join(re.sub(r"[^a-z0-9]+", " ", normalized).split())
-
-
-def load_cases(path: Path) -> list[dict]:
-    with path.open("r", encoding="utf-8") as file:
-        cases = json.load(file)
-    if not isinstance(cases, list) or not cases:
-        raise ValueError("Bộ câu hỏi RAG phải là danh sách không rỗng.")
-    return cases
-
-
-def correctness_score(answer: str, expected_facts: list[str]) -> float:
-    normalized_answer = normalize_text(answer)
-    matched = sum(
-        normalize_text(fact) in normalized_answer
-        for fact in expected_facts
-    )
-    return matched / len(expected_facts)
-
-
-def district_filter_score(
-    context: list[dict],
-    district: str | None,
-    expect_no_context: bool,
-) -> float | None:
-    if not district:
-        return None
-    if not context:
-        return 1.0 if expect_no_context else 0.0
-
-    expected = normalize_text(district)
-    return float(
-        all(
-            normalize_text(document.get("district") or "") == expected
-            for document in context
+def _load_ragas():
+    try:
+        from ragas.embeddings import HuggingFaceEmbeddings
+        from ragas.llms import llm_factory
+        from ragas.metrics.collections import (
+            AnswerRelevancy,
+            ContextPrecision,
+            ContextRecall,
+            Faithfulness,
         )
-    )
+    except ImportError as exc:
+        raise RuntimeError(
+            "Thiếu dependency Ragas. Chạy: "
+            "python -m pip install -r requirements.txt"
+        ) from exc
+
+    return {
+        "HuggingFaceEmbeddings": HuggingFaceEmbeddings,
+        "llm_factory": llm_factory,
+        "AnswerRelevancy": AnswerRelevancy,
+        "ContextPrecision": ContextPrecision,
+        "ContextRecall": ContextRecall,
+        "Faithfulness": Faithfulness,
+    }
 
 
-def judge_faithfulness(
-    pipeline: RAGPipeline,
-    *,
-    question: str,
-    answer: str,
-    context: list[dict],
-) -> tuple[float, int, int]:
-    judge_input = json.dumps(
-        {
-            "question": question,
-            "answer": answer,
-            "context": context,
+def _metric_payload(result: Any) -> dict[str, Any]:
+    value = getattr(result, "value", result)
+    reason = getattr(result, "reason", None)
+    return {
+        "score": float(value),
+        "reason": str(reason) if reason else None,
+    }
+
+
+async def _score_record(
+    record: dict[str, Any],
+    scorers: dict[str, Any],
+) -> dict[str, Any]:
+    contexts = record["retrieved_contexts"]
+    if not contexts:
+        return {
+            "id": record["case"]["id"],
+            "skipped": True,
+            "skip_reason": (
+                "Ragas context metrics require retrieved evidence; "
+                "the deterministic suite owns empty-context behavior."
+            ),
+            "metrics": {},
+        }
+
+    common = {
+        "user_input": record["user_input"],
+        "response": record["response"],
+        "retrieved_contexts": contexts,
+    }
+    calls = {
+        "faithfulness": scorers["faithfulness"].ascore(**common),
+        "context_precision": scorers["context_precision"].ascore(
+            user_input=record["user_input"],
+            reference=record["reference"],
+            retrieved_contexts=contexts,
+        ),
+        "context_recall": scorers["context_recall"].ascore(
+            user_input=record["user_input"],
+            reference=record["reference"],
+            retrieved_contexts=contexts,
+        ),
+        "answer_relevancy": scorers["answer_relevancy"].ascore(
+            user_input=record["user_input"],
+            response=record["response"],
+        ),
+    }
+    results = await asyncio.gather(*calls.values())
+    return {
+        "id": record["case"]["id"],
+        "skipped": False,
+        "metrics": {
+            name: _metric_payload(result)
+            for name, result in zip(calls, results)
         },
-        ensure_ascii=False,
+    }
+
+
+async def evaluate(
+    records: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    ragas = _load_ragas()
+    client = AsyncOpenAI(
+        api_key=settings.GITHUB_TOKEN,
+        base_url=settings.LLM_BASE_URL,
+        timeout=settings.LLM_TIMEOUT_SECONDS,
+        max_retries=settings.EXTERNAL_RETRY_ATTEMPTS - 1,
     )
-    response = call_with_retry(
-        lambda: pipeline.ai_client.chat.completions.create(
-            model=pipeline.llm_model,
-            messages=[
-                {"role": "system", "content": JUDGE_INSTRUCTION},
-                {"role": "user", "content": judge_input},
-            ],
+    try:
+        llm = ragas["llm_factory"](
+            settings.LLM_MODEL,
+            provider="openai",
+            client=client,
             temperature=0,
-            max_tokens=80,
-        ),
-        attempts=settings.EXTERNAL_RETRY_ATTEMPTS,
-        base_seconds=settings.EXTERNAL_RETRY_BASE_SECONDS,
-        max_seconds=settings.EXTERNAL_RETRY_MAX_SECONDS,
-        circuit_breaker=pipeline.llm_circuit_breaker,
-    )
-    content = response.choices[0].message.content
-    if not isinstance(content, str):
-        raise RuntimeError("LLM judge trả về nội dung không hợp lệ.")
-
-    json_match = re.search(r"\{.*\}", content, flags=re.DOTALL)
-    if not json_match:
-        raise RuntimeError("LLM judge không trả về JSON.")
-    payload = json.loads(json_match.group(0))
-    score = min(1.0, max(0.0, float(payload["faithfulness"])))
-
-    usage = getattr(response, "usage", None)
-    return (
-        score,
-        int(getattr(usage, "prompt_tokens", 0) or 0),
-        int(getattr(usage, "completion_tokens", 0) or 0),
-    )
-
-
-def evaluate_case(
-    pipeline: RAGPipeline,
-    case: dict,
-    *,
-    use_judge: bool,
-    input_price_per_million: float,
-    output_price_per_million: float,
-) -> dict:
-    result = pipeline.run_with_metrics(
-        user_question=case["question"],
-        district=case.get("district"),
-    )
-    answer = result["answer"]
-    context = result["context"]
-    prompt_tokens = result["prompt_tokens"]
-    completion_tokens = result["completion_tokens"]
-
-    faithfulness = None
-    if use_judge:
-        (
-            faithfulness,
-            judge_prompt_tokens,
-            judge_completion_tokens,
-        ) = judge_faithfulness(
-            pipeline,
-            question=case["question"],
-            answer=answer,
-            context=context,
         )
-        prompt_tokens += judge_prompt_tokens
-        completion_tokens += judge_completion_tokens
+        embeddings = ragas["HuggingFaceEmbeddings"](
+            model=settings.EMBEDDING_MODEL,
+            device="cpu",
+            local_files_only=settings.EMBEDDING_LOCAL_FILES_ONLY,
+        )
+        scorers = {
+            "faithfulness": ragas["Faithfulness"](llm=llm),
+            "context_precision": ragas["ContextPrecision"](llm=llm),
+            "context_recall": ragas["ContextRecall"](llm=llm),
+            "answer_relevancy": ragas["AnswerRelevancy"](
+                llm=llm,
+                embeddings=embeddings,
+            ),
+        }
 
-    estimated_cost = (
-        prompt_tokens * input_price_per_million
-        + completion_tokens * output_price_per_million
-    ) / 1_000_000
+        results = []
+        for record in records:
+            results.append(await _score_record(record, scorers))
+        return results
+    finally:
+        await client.close()
+
+
+def build_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
+    metric_names = (
+        "faithfulness",
+        "context_precision",
+        "context_recall",
+        "answer_relevancy",
+    )
     return {
-        "id": case["id"],
-        "correctness": correctness_score(
-            answer,
-            case["expected_facts"],
-        ),
-        "faithfulness": faithfulness,
-        "district_filter": district_filter_score(
-            context,
-            case.get("district"),
-            case.get("expect_no_context", False),
-        ),
-        "latency_ms": result["latency_ms"],
-        "prompt_tokens": prompt_tokens,
-        "completion_tokens": completion_tokens,
-        "estimated_cost_usd": estimated_cost,
-        "answer": answer,
-    }
-
-
-def build_summary(results: list[dict]) -> dict:
-    faithfulness = [
-        result["faithfulness"]
-        for result in results
-        if result["faithfulness"] is not None
-    ]
-    district_scores = [
-        result["district_filter"]
-        for result in results
-        if result["district_filter"] is not None
-    ]
-    latencies = [result["latency_ms"] for result in results]
-    return {
-        "cases": len(results),
-        "correctness": float(
-            np.mean([result["correctness"] for result in results])
-        ),
-        "faithfulness": (
-            float(np.mean(faithfulness)) if faithfulness else None
-        ),
-        "district_filter_accuracy": (
-            float(np.mean(district_scores))
-            if district_scores
-            else None
-        ),
-        "latency_ms": {
-            "mean": float(np.mean(latencies)),
-            "p50": float(np.percentile(latencies, 50)),
-            "p95": float(np.percentile(latencies, 95)),
+        "evaluated_cases": sum(not item["skipped"] for item in results),
+        "skipped_cases": sum(item["skipped"] for item in results),
+        "metrics": {
+            metric_name: mean(
+                item["metrics"].get(metric_name, {}).get("score")
+                for item in results
+            )
+            for metric_name in metric_names
         },
-        "prompt_tokens": sum(
-            result["prompt_tokens"] for result in results
-        ),
-        "completion_tokens": sum(
-            result["completion_tokens"] for result in results
-        ),
-        "estimated_cost_usd": sum(
-            result["estimated_cost_usd"] for result in results
-        ),
     }
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run real Ragas metrics against the live RAG pipeline.",
+    )
+    parser.add_argument("--cases", type=Path, default=DEFAULT_RAG_CASES)
+    parser.add_argument("--max-cases", type=int)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--min-score",
+        type=float,
+        help="Fail when any aggregate Ragas metric is below this value.",
+    )
+    args = parser.parse_args()
+    if args.min_score is not None and not 0 <= args.min_score <= 1:
+        parser.error("--min-score must be between 0 and 1")
+    return args
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Đánh giá correctness, faithfulness, filter, latency và cost.",
-    )
-    parser.add_argument("--cases", type=Path, default=DEFAULT_CASES)
-    parser.add_argument("--output", type=Path)
-    parser.add_argument(
-        "--skip-faithfulness-judge",
-        action="store_true",
-        help="Không gọi thêm LLM judge để tiết kiệm token.",
-    )
-    parser.add_argument(
-        "--input-price-per-million",
-        type=float,
-        default=0,
-    )
-    parser.add_argument(
-        "--output-price-per-million",
-        type=float,
-        default=0,
-    )
-    args = parser.parse_args()
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
 
+    args = parse_args()
     pipeline = RAGPipeline()
     try:
         pipeline.warmup()
-        results = [
-            evaluate_case(
-                pipeline,
-                case,
-                use_judge=not args.skip_faithfulness_judge,
-                input_price_per_million=args.input_price_per_million,
-                output_price_per_million=args.output_price_per_million,
-            )
-            for case in load_cases(args.cases)
+        records = [
+            collect_record(pipeline, case)
+            for case in load_cases(args.cases, max_cases=args.max_cases)
         ]
+        results = asyncio.run(evaluate(records))
+        summary = build_summary(results)
         report = {
-            "model": settings.LLM_MODEL,
-            "summary": build_summary(results),
+            "framework": "ragas",
+            "framework_version": "0.4.3",
+            "judge_model": settings.LLM_MODEL,
+            "metadata": evaluation_metadata(
+                cases_path=args.cases,
+                collection=settings.QDRANT_COLLECTION,
+                embedding_model=settings.EMBEDDING_MODEL,
+            ),
+            "summary": summary,
             "results": results,
         }
-        print(json.dumps(report["summary"], ensure_ascii=False, indent=2))
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
+        save_report(args.output, report)
 
-        if args.output:
-            args.output.parent.mkdir(parents=True, exist_ok=True)
-            with args.output.open("w", encoding="utf-8") as file:
-                json.dump(report, file, ensure_ascii=False, indent=2)
+        failed = failed_ragas_metrics(summary, args.min_score)
+        if failed:
+            raise SystemExit(
+                "Ragas metrics below threshold: " + ", ".join(failed)
+            )
     finally:
         asyncio.run(pipeline.aclose())
 

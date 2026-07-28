@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'rea
 import { Loader2 } from 'lucide-react';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ChatProvider } from './context/ChatContext';
 import { Navbar } from './components/Navbar';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -43,10 +44,10 @@ const ProtectedLayout = () => {
   }
 
   return (
-    <>
+    <ChatProvider key={user.id ?? user.username}>
       <Navbar />
       <Outlet />
-    </>
+    </ChatProvider>
   );
 };
 

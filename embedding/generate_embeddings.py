@@ -16,23 +16,34 @@ MODEL_NAME = os.getenv(
 )
 DEFAULT_INPUTS = (
     PROJECT_ROOT / "data" / "processed" / "food_chunks.json",
-    PROJECT_ROOT / "data" / "processed" / "travel_chunks.json",
 )
-DEFAULT_OUTPUT = PROJECT_ROOT / "data" / "final" / "hanoi_knowledge_v2.json"
+DEFAULT_OUTPUT = PROJECT_ROOT / "data" / "final" / "hanoi_food_v1.json"
 
 REQUIRED_FIELDS = (
     "chunk_id",
     "parent_id",
     "domain",
     "title",
+    "title_normalized",
     "address",
+    "address_normalized",
     "district",
     "district_normalized",
     "price_range",
+    "price_min",
+    "price_max",
+    "price_currency",
+    "price_status",
     "opening_hours",
+    "opening_intervals",
+    "opening_status",
+    "opening_schedule_scope",
     "category",
     "category_normalized",
+    "sub_category",
+    "sub_category_normalized",
     "tags",
+    "tags_normalized",
     "description",
     "vector_text",
 )
@@ -70,9 +81,9 @@ def load_and_validate_chunks(input_paths):
                 raise ValueError(f"{input_path}[{row_index}] has an empty chunk_id")
             if chunk_id in chunk_ids:
                 raise ValueError(f"Duplicate chunk_id: {chunk_id}")
-            if chunk["domain"] not in {"food", "travel"}:
+            if chunk["domain"] != "food":
                 raise ValueError(
-                    f"{input_path}[{row_index}] has invalid domain: {chunk['domain']}"
+                    f"{input_path}[{row_index}] must use the food domain"
                 )
             if not str(chunk["vector_text"]).strip():
                 raise ValueError(f"{chunk_id} has empty vector_text")
@@ -80,15 +91,22 @@ def load_and_validate_chunks(input_paths):
             chunk_ids.add(chunk_id)
             chunks.append(chunk)
 
-    domains = Counter(chunk["domain"] for chunk in chunks)
-    if not domains["food"] or not domains["travel"]:
-        raise ValueError("Both food and travel chunks are required")
+    if not chunks:
+        raise ValueError("At least one food chunk is required")
 
     return chunks
 
 
-def generate_embeddings(chunks, model_name, batch_size):
-    model = SentenceTransformer(model_name)
+def generate_embeddings(
+    chunks,
+    model_name,
+    batch_size,
+    local_files_only=False,
+):
+    model = SentenceTransformer(
+        model_name,
+        local_files_only=local_files_only,
+    )
     texts = [chunk["vector_text"] for chunk in chunks]
     vectors = model.encode(
         texts,
@@ -117,7 +135,7 @@ def generate_embeddings(chunks, model_name, batch_size):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Generate one embedding file for food and travel chunks."
+        description="Generate one embedding file for the food catalog."
     )
     parser.add_argument(
         "--inputs",
@@ -129,6 +147,11 @@ def parse_args():
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--model", default=MODEL_NAME)
     parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument(
+        "--local-files-only",
+        action="store_true",
+        help="Load the embedding model only from the local cache.",
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -149,7 +172,7 @@ def main():
 
     print(
         f"Validated {len(chunks)} chunks from {parent_count} records "
-        f"(food={domains['food']}, travel={domains['travel']})."
+        f"(food={domains['food']})."
     )
     if args.dry_run:
         print("Dry-run completed. No model was loaded and no file was written.")
@@ -159,6 +182,7 @@ def main():
         chunks=chunks,
         model_name=args.model,
         batch_size=args.batch_size,
+        local_files_only=args.local_files_only,
     )
     output_path = args.output.resolve()
     write_json(output_path, embedded_chunks)

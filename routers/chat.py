@@ -12,6 +12,7 @@ from core.observability import bind_session_id
 from core.security import get_current_user
 from database.connection import get_db
 from database.models import UserModel
+from embedding.text_utils import normalize_text
 from schemas.chat import ChatRequest, ChatResponse
 from services.chat_service import (
     ChatRateLimitExceededError,
@@ -68,6 +69,10 @@ HANOI_DISTRICTS = [
     "Ứng Hòa",
     "Ba Vì",
 ]
+NORMALIZED_HANOI_DISTRICTS = {
+    normalize_text(district): district
+    for district in HANOI_DISTRICTS
+}
 
 
 def resolve_effective_district(
@@ -79,13 +84,15 @@ def resolve_effective_district(
     1. Nếu tin nhắn chứa tên quận/huyện -> ưu tiên tên trong tin nhắn.
     2. Nếu không -> lấy quận ở UI nếu khác None / "Tất cả".
     """
-    question_lower = user_question.lower()
-    for district in HANOI_DISTRICTS:
-        if district.lower() in question_lower:
+    normalized_question = f" {normalize_text(user_question)} "
+    for normalized_district, district in NORMALIZED_HANOI_DISTRICTS.items():
+        if f" {normalized_district} " in normalized_question:
             return district
 
     if ui_district and ui_district != "Tất cả":
-        return ui_district
+        return NORMALIZED_HANOI_DISTRICTS.get(
+            normalize_text(ui_district)
+        )
 
     return None
 

@@ -21,9 +21,11 @@ from qdrant_client.models import (
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(PROJECT_ROOT / ".env")
 
-DEFAULT_VECTOR_FILE = PROJECT_ROOT / "data" / "final" / "hanoi_knowledge_v2.json"
-DEFAULT_COLLECTION = "hanoi_knowledge_v2"
-DEFAULT_ALIAS = os.getenv("QDRANT_COLLECTION", "hanoi_knowledge_current")
+DEFAULT_VECTOR_FILE = PROJECT_ROOT / "data" / "final" / "hanoi_food_v1.json"
+DEFAULT_COLLECTION = "hanoi_food_v1"
+DEFAULT_ALIAS = "hanoi_food_current"
+DEFAULT_EXPECTED_POINTS = 624
+DEFAULT_EXPECTED_PARENTS = 418
 POINT_ID_NAMESPACE = uuid.UUID("83eed46d-713b-4d5d-a8e8-caf7b61a98c8")
 
 REQUIRED_PAYLOAD_FIELDS = (
@@ -31,22 +33,40 @@ REQUIRED_PAYLOAD_FIELDS = (
     "parent_id",
     "domain",
     "title",
+    "title_normalized",
     "address",
+    "address_normalized",
     "district",
     "district_normalized",
     "price_range",
+    "price_min",
+    "price_max",
+    "price_currency",
+    "price_status",
     "opening_hours",
+    "opening_intervals",
+    "opening_status",
+    "opening_schedule_scope",
     "category",
     "category_normalized",
+    "sub_category",
+    "sub_category_normalized",
     "tags",
+    "tags_normalized",
     "description",
     "vector_text",
 )
 
 PAYLOAD_INDEXES = (
-    "domain",
-    "district_normalized",
-    "category_normalized",
+    ("domain", PayloadSchemaType.KEYWORD),
+    ("parent_id", PayloadSchemaType.KEYWORD),
+    ("title_normalized", PayloadSchemaType.KEYWORD),
+    ("district_normalized", PayloadSchemaType.KEYWORD),
+    ("category_normalized", PayloadSchemaType.KEYWORD),
+    ("sub_category_normalized", PayloadSchemaType.KEYWORD),
+    ("tags_normalized", PayloadSchemaType.KEYWORD),
+    ("price_min", PayloadSchemaType.INTEGER),
+    ("price_max", PayloadSchemaType.INTEGER),
 )
 
 
@@ -65,11 +85,14 @@ def read_vector_file(path):
     return rows
 
 
-def validate_vector_rows(rows):
+def validate_vector_rows(
+    rows,
+    expected_point_count=None,
+    expected_parent_count=None,
+):
     chunk_ids = set()
     point_ids = set()
     vector_size = None
-    domains = set()
 
     for row_index, row in enumerate(rows):
         missing = [field for field in REQUIRED_PAYLOAD_FIELDS if field not in row]
@@ -99,13 +122,26 @@ def validate_vector_rows(rows):
         elif len(vector) != vector_size:
             raise ValueError(f"{chunk_id} has a different vector size")
 
-        domain = row["domain"]
-        if domain not in {"food", "travel"}:
-            raise ValueError(f"{chunk_id} has invalid domain: {domain}")
-        domains.add(domain)
+        if row["domain"] != "food":
+            raise ValueError(f"{chunk_id} must use the food domain")
 
-    if domains != {"food", "travel"}:
-        raise ValueError("The vector file must contain both food and travel data")
+    if (
+        expected_point_count is not None
+        and len(rows) != expected_point_count
+    ):
+        raise ValueError(
+            f"Expected {expected_point_count} points, found {len(rows)}"
+        )
+
+    parent_count = len({row["parent_id"] for row in rows})
+    if (
+        expected_parent_count is not None
+        and parent_count != expected_parent_count
+    ):
+        raise ValueError(
+            f"Expected {expected_parent_count} food records, "
+            f"found {parent_count}"
+        )
 
     return vector_size
 
@@ -124,11 +160,11 @@ def build_points(rows):
 
 
 def create_payload_indexes(client, collection_name):
-    for field_name in PAYLOAD_INDEXES:
+    for field_name, field_schema in PAYLOAD_INDEXES:
         client.create_payload_index(
             collection_name=collection_name,
             field_name=field_name,
-            field_schema=PayloadSchemaType.KEYWORD,
+            field_schema=field_schema,
             wait=True,
         )
 
@@ -210,8 +246,14 @@ def upload_vector_data(
     collection_name,
     alias_name,
     switch_collection_alias=True,
+    expected_point_count=None,
+    expected_parent_count=None,
 ):
-    vector_size = validate_vector_rows(rows)
+    vector_size = validate_vector_rows(
+        rows,
+        expected_point_count=expected_point_count,
+        expected_parent_count=expected_parent_count,
+    )
 
     if collection_name == alias_name:
         raise ValueError("Collection name and alias name must be different")
@@ -253,11 +295,21 @@ def parse_args():
     parser.add_argument("--collection", default=DEFAULT_COLLECTION)
     parser.add_argument("--alias", default=DEFAULT_ALIAS)
     parser.add_argument(
+        "--expected-points",
+        type=int,
+        default=DEFAULT_EXPECTED_POINTS,
+    )
+    parser.add_argument(
+        "--expected-parents",
+        type=int,
+        default=DEFAULT_EXPECTED_PARENTS,
+    )
+    parser.add_argument(
         "--qdrant-url",
         default=(
             os.getenv("QDRANT_URL")
             or (
-                f"http://{os.getenv('QDRANT_HOST', 'localhost')}:"
+                f"http://{os.getenv('QDRANT_HOST', '127.0.0.1')}:"
                 f"{os.getenv('QDRANT_PORT', '6333')}"
             )
         ),
@@ -282,9 +334,15 @@ def parse_args():
 
 def main():
     args = parse_args()
+    if args.expected_points <= 0 or args.expected_parents <= 0:
+        raise ValueError("Expected point and parent counts must be positive")
     vector_path = args.input.resolve()
     rows = read_vector_file(vector_path)
-    vector_size = validate_vector_rows(rows)
+    vector_size = validate_vector_rows(
+        rows,
+        expected_point_count=args.expected_points,
+        expected_parent_count=args.expected_parents,
+    )
 
     print(
         f"Validated {len(rows)} points ({vector_size} dimensions) "
@@ -299,13 +357,18 @@ def main():
         api_key=args.api_key,
         timeout=60,
     )
-    upload_vector_data(
-        client=client,
-        rows=rows,
-        collection_name=args.collection,
-        alias_name=args.alias,
-        switch_collection_alias=not args.no_alias_switch,
-    )
+    try:
+        upload_vector_data(
+            client=client,
+            rows=rows,
+            collection_name=args.collection,
+            alias_name=args.alias,
+            switch_collection_alias=not args.no_alias_switch,
+            expected_point_count=args.expected_points,
+            expected_parent_count=args.expected_parents,
+        )
+    finally:
+        client.close()
 
     if args.no_alias_switch:
         print(

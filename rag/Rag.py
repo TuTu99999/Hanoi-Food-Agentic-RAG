@@ -1,10 +1,8 @@
 import asyncio
 import json
 import logging
-import re
 import threading
 import time
-import unicodedata
 from typing import AsyncIterator
 
 from openai import AsyncOpenAI, OpenAI
@@ -15,6 +13,7 @@ from core.resilience import (
     call_with_retry,
     call_with_retry_async,
 )
+from embedding.text_utils import normalize_text
 
 
 logger = logging.getLogger(__name__)
@@ -24,7 +23,7 @@ NO_RESULTS_MESSAGE = (
     "liên quan đến câu hỏi của bạn."
 )
 SYSTEM_INSTRUCTION = (
-    "Bạn là trợ lý tư vấn ẩm thực và du lịch Hà Nội.\n"
+    "Bạn là trợ lý tư vấn ẩm thực Hà Nội.\n"
     "Hãy trả lời tự nhiên, thân thiện và hữu ích.\n"
     "QUY TẮC CHỐNG ẢO TƯỞNG:\n"
     "1. Chỉ dùng dữ liệu trong phần 'NGỮ CẢNH CUNG CẤP' của câu hỏi hiện tại.\n"
@@ -34,23 +33,14 @@ SYSTEM_INSTRUCTION = (
     "4. Nếu ngữ cảnh không đủ, hãy trả lời: "
     "'Dựa trên dữ liệu hiện tại, tôi không có đủ thông tin chi tiết về vấn đề này.'\n"
     "5. Có thể nhận biết lỗi chính tả nhỏ khi tên trong ngữ cảnh khớp rõ ràng; "
-    "không tự tạo địa điểm mới."
+    "không tự tạo địa điểm mới.\n"
+    "6. Dữ liệu giờ mở cửa có nhãn 'daily_assumed' chỉ là lịch hằng ngày từ "
+    "nguồn hiện có; không tự khẳng định lịch ngày lễ hoặc ngày đặc biệt."
 )
 
 
 class RAGConfigurationError(RuntimeError):
     pass
-
-
-def _normalize_text(value: str) -> str:
-    normalized = unicodedata.normalize("NFD", value.lower())
-    normalized = "".join(
-        character
-        for character in normalized
-        if unicodedata.category(character) != "Mn"
-    )
-    normalized = normalized.replace("đ", "d")
-    return " ".join(re.sub(r"[^a-z0-9]+", " ", normalized).split())
 
 
 def _greeting_response(question: str) -> str | None:
@@ -62,11 +52,11 @@ def _greeting_response(question: str) -> str | None:
         "hi",
         "xin chao",
     }
-    if _normalize_text(question) not in greetings:
+    if normalize_text(question) not in greetings:
         return None
     return (
-        "Xin chào! Mình có thể giúp bạn tìm quán ăn hoặc "
-        "địa điểm du lịch tại Hà Nội."
+        "Xin chào! Mình có thể giúp bạn tìm quán ăn, món ăn, "
+        "địa chỉ, giá và giờ mở cửa tại Hà Nội."
     )
 
 
@@ -86,6 +76,8 @@ class RAGPipeline:
 
         self.retriever = None
         self._retriever_lock = threading.Lock()
+        self.agentic_workflow = None
+        self._agentic_workflow_lock = threading.Lock()
 
         client_options = {
             "base_url": settings.LLM_BASE_URL,
@@ -133,13 +125,43 @@ class RAGPipeline:
                         local_files_only=(
                             settings.EMBEDDING_LOCAL_FILES_ONLY
                         ),
+                        catalog_path=settings.FOOD_CATALOG_PATH,
                     )
                     logger.info("Retrieval engine loaded.")
 
         return self.retriever
 
+    def _get_agentic_workflow(self):
+        if getattr(self, "agentic_workflow", None) is None:
+            workflow_lock = getattr(
+                self,
+                "_agentic_workflow_lock",
+                None,
+            )
+            if workflow_lock is None:
+                workflow_lock = threading.Lock()
+                self._agentic_workflow_lock = workflow_lock
+
+            with workflow_lock:
+                if getattr(self, "agentic_workflow", None) is None:
+                    from rag.agentic_graph import AgenticRAGWorkflow
+                    from rag.query_router import QueryRouter
+
+                    self.agentic_workflow = AgenticRAGWorkflow(
+                        retriever=self._get_retriever(),
+                        min_score=settings.RAG_MIN_SCORE,
+                        query_router=QueryRouter(
+                            confidence_threshold=(
+                                settings.QUERY_ROUTER_CONFIDENCE
+                            )
+                        ),
+                    )
+                    logger.info("Agentic RAG workflow loaded.")
+
+        return self.agentic_workflow
+
     def warmup(self) -> None:
-        self._get_retriever()
+        self._get_agentic_workflow()
 
     def check_retrieval_ready(self) -> None:
         self._get_retriever().check_ready()
@@ -193,7 +215,7 @@ class RAGPipeline:
         history: list[dict[str, str]],
     ) -> str:
         """Add the previous question when the current question is a short follow-up."""
-        if len(_normalize_text(user_question).split()) > 12:
+        if len(normalize_text(user_question).split()) > 12:
             return user_question
 
         previous_question = next(
@@ -225,26 +247,34 @@ class RAGPipeline:
             return greeting, [], []
 
         cleaned_history = self._clean_history(history)
-        retriever = self._get_retriever()
         search_query = self._build_search_query(
             user_question,
             cleaned_history,
         )
-
-        context_docs = retriever.search(
-            query=search_query,
-            top_k=5,
-            district_filter=district,
-            min_score=settings.RAG_MIN_SCORE,
+        agent_result = self._get_agentic_workflow().invoke(
+            query=user_question,
+            district=district,
+            history=cleaned_history,
             collection_name=collection_name,
+            search_query=search_query,
         )
+        context_docs = agent_result.documents
 
         logger.info(
-            "Qdrant search completed.",
+            "Agentic hybrid retrieval completed.",
             extra={
                 "query_length": len(user_question),
                 "result_count": len(context_docs),
-                "district": district or "-",
+                "district": agent_result.district or "-",
+                "intent": agent_result.intent,
+                "router_source": agent_result.intent_source,
+                "router_confidence": agent_result.intent_confidence,
+                "evidence_reason": agent_result.evidence_reason,
+                "retry_count": agent_result.retry_count,
+                "branch_counts": agent_result.branch_counts,
+                "exact_shortcut_used": (
+                    agent_result.exact_shortcut_used
+                ),
             },
         )
         for idx, doc in enumerate(context_docs):
@@ -257,8 +287,11 @@ class RAGPipeline:
                 },
             )
 
+        if not agent_result.should_generate:
+            return agent_result.direct_answer or NO_RESULTS_MESSAGE, [], []
+
         if not context_docs:
-            logger.info("No document passed the retrieval threshold.")
+            logger.warning("Agent returned generation mode without evidence.")
             return NO_RESULTS_MESSAGE, [], []
 
         structured_context = []
@@ -272,9 +305,23 @@ class RAGPipeline:
                     "category": doc.get("category"),
                     "sub_category": doc.get("sub_category"),
                     "price_range": doc.get("price_range"),
+                    "price_min": doc.get("price_min"),
+                    "price_max": doc.get("price_max"),
+                    "price_currency": doc.get("price_currency"),
+                    "price_status": doc.get("price_status"),
                     "opening_hours": doc.get("opening_hours"),
+                    "opening_intervals": doc.get(
+                        "opening_intervals",
+                        [],
+                    ),
+                    "opening_status": doc.get("opening_status"),
+                    "opening_schedule_scope": doc.get(
+                        "opening_schedule_scope",
+                    ),
                     "tags": doc.get("tags", []),
-                    "description": doc.get("content", ""),
+                    # Keep the evidence prompt bounded even if a catalog
+                    # entity has many chunks.
+                    "description": str(doc.get("content", ""))[:1200],
                 }
             )
 
