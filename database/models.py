@@ -5,6 +5,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -24,6 +25,12 @@ class UserModel(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
+    token_version = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
     created_at = Column(
         DateTime,
         nullable=False,
@@ -35,9 +42,29 @@ class UserModel(Base):
     favorites = relationship("FavoriteModel", back_populates="user", cascade="all, delete-orphan")
 
 
+class RateLimitBucketModel(Base):
+    __tablename__ = "rate_limit_buckets"
+    __table_args__ = (
+        CheckConstraint(
+            "request_count > 0",
+            name="ck_rate_limit_buckets_request_count_positive",
+        ),
+    )
+
+    scope = Column(String(64), primary_key=True)
+    identifier_hash = Column(String(64), primary_key=True)
+    request_count = Column(Integer, nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+
+
 class ChatSessionModel(Base):
     __tablename__ = "chat_sessions"
     __table_args__ = (
+        Index(
+            "ix_chat_sessions_user_id_id",
+            "user_id",
+            "id",
+        ),
         CheckConstraint(
             "next_position >= 0",
             name="ck_chat_sessions_next_position_nonnegative",
@@ -93,6 +120,10 @@ class MessageModel(Base):
             "role",
             name="uq_messages_session_turn_role",
         ),
+        UniqueConstraint(
+            "client_request_id",
+            name="uq_messages_client_request_id",
+        ),
         CheckConstraint(
             "position >= 0",
             name="ck_messages_position_nonnegative",
@@ -115,6 +146,7 @@ class MessageModel(Base):
         index=True,
     )
     turn_id = Column(String(36), nullable=False, index=True)
+    client_request_id = Column(String(36), nullable=True)
     position = Column(Integer, nullable=False)
     role = Column(String(20), nullable=False)
     content = Column(Text, nullable=False)

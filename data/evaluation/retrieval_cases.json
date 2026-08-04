@@ -1,122 +1,1269 @@
 [
   {
-    "query": "cho tôi địa chỉ Phở Thìn Bờ Hồ",
+    "id": "entity-001",
+    "group": "entity_lookup",
+    "query": "địa chỉ Phở Thìn Bờ Hồ",
     "district": "Hoàn Kiếm",
     "domain": "food",
-    "expected_parent_ids": ["food_001"]
+    "expected_parent_ids": [
+      "food_001"
+    ]
   },
   {
-    "query": "ca phe giang mo cua luc nao",
-    "district": "hoan kiem",
+    "id": "entity-002",
+    "group": "entity_lookup",
+    "query": "Cà phê Giảng mở cửa lúc nào",
+    "district": "Hoàn Kiếm",
     "domain": "food",
-    "expected_parent_ids": ["food_003"]
+    "expected_parent_ids": [
+      "food_003"
+    ]
   },
   {
+    "id": "entity-003",
+    "group": "entity_lookup",
     "query": "Bún thang Bà Đức ở đâu",
     "district": "Hoàn Kiếm",
     "domain": "food",
-    "expected_parent_ids": ["food_005"]
+    "expected_parent_ids": [
+      "food_005"
+    ]
   },
   {
+    "id": "entity-004",
+    "group": "entity_lookup",
     "query": "giờ mở cửa Ốc Hà Trang Đinh Liệt",
     "district": "Hoàn Kiếm",
     "domain": "food",
-    "expected_parent_ids": ["food_010"]
+    "expected_parent_ids": [
+      "food_010"
+    ]
   },
   {
-    "query": "vị trí bánh mì sốt vang Đình Ngan",
+    "id": "entity-005",
+    "group": "entity_lookup",
+    "query": "địa chỉ Bánh mì sốt vang Đình Ngang",
     "district": "Hoàn Kiếm",
     "domain": "food",
-    "expected_parent_ids": ["food_025"]
+    "expected_parent_ids": [
+      "food_025"
+    ]
   },
   {
-    "query": "bun rieu tom cua hang bong",
-    "district": "hoan kiem",
+    "id": "entity-006",
+    "group": "entity_lookup",
+    "query": "Bún riêu tôm cua Hàng Bông ở đâu",
+    "district": "Hoàn Kiếm",
     "domain": "food",
-    "expected_parent_ids": ["food_050"]
+    "expected_parent_ids": [
+      "food_050"
+    ]
   },
   {
+    "id": "entity-007",
+    "group": "entity_lookup",
     "query": "Cơm Gà Gia Trần 1 giá bao nhiêu",
     "district": "Hoàn Kiếm",
     "domain": "food",
-    "expected_parent_ids": ["food_075"]
+    "expected_parent_ids": [
+      "food_075"
+    ]
   },
   {
-    "query": "Bánh Xèo Bé Uyên đặc sản Đại Lộc",
+    "id": "entity-008",
+    "group": "entity_lookup",
+    "query": "Bánh Xèo Bé Uyên Đặc Sản Đại Lộc",
     "district": "Hoàn Kiếm",
     "domain": "food",
-    "expected_parent_ids": ["food_100"]
+    "expected_parent_ids": [
+      "food_100"
+    ]
   },
   {
-    "query": "Bún bò Huế Đông Ba Quán",
+    "id": "entity-009",
+    "group": "entity_lookup",
+    "query": "Bún Bò Huế Đông Ba Quán",
     "district": "Ba Đình",
     "domain": "food",
-    "expected_parent_ids": ["food_125"]
+    "expected_parent_ids": [
+      "food_125"
+    ]
   },
   {
-    "query": "chè Xà Vẵn Ngọc Trâm ở đâu",
-    "district": "ba dinh",
+    "id": "entity-010",
+    "group": "entity_lookup",
+    "query": "địa chỉ Chè Xà Vẫn Ngọc Trâm",
+    "district": "Ba Đình",
     "domain": "food",
-    "expected_parent_ids": ["food_150"]
+    "expected_parent_ids": [
+      "food_150"
+    ]
   },
   {
+    "id": "entity-011",
+    "group": "entity_lookup",
     "query": "tìm Bún Lành",
     "district": "Ba Đình",
     "domain": "food",
-    "expected_parent_ids": ["food_175"]
+    "expected_parent_ids": [
+      "food_175"
+    ]
   },
   {
+    "id": "entity-012",
+    "group": "entity_lookup",
     "query": "Bún Bò Huế Ngọc Diệp giá bao nhiêu",
     "district": "Ba Đình",
     "domain": "food",
-    "expected_parent_ids": ["food_184"]
+    "expected_parent_ids": [
+      "food_184"
+    ]
   },
   {
+    "id": "entity-013",
+    "group": "entity_lookup",
+    "query": "6 Degrees Hồ Tây mở đến mấy giờ",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_202"
+    ]
+  },
+  {
+    "id": "entity-014",
+    "group": "entity_lookup",
+    "query": "Pizza 4P's Tây Hồ ở đâu",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_205"
+    ]
+  },
+  {
+    "id": "entity-015",
+    "group": "entity_lookup",
+    "query": "thông tin Maison de Tet Decor",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_211"
+    ]
+  },
+  {
+    "id": "entity-016",
+    "group": "entity_lookup",
     "query": "Nhà Hàng Sài Gòn 1970s",
     "district": "Tây Hồ",
     "domain": "food",
-    "expected_parent_ids": ["food_225"]
+    "expected_parent_ids": [
+      "food_225"
+    ]
   },
   {
-    "query": "sushi club tây hồ mở đến mấy giờ",
-    "district": "tay ho",
+    "id": "entity-017",
+    "group": "entity_lookup",
+    "query": "The Sushi Club Tây Hồ giá",
+    "district": "Tây Hồ",
     "domain": "food",
-    "expected_parent_ids": ["food_250"]
+    "expected_parent_ids": [
+      "food_250"
+    ]
   },
   {
+    "id": "entity-018",
+    "group": "entity_lookup",
     "query": "Maison de Tet Decor brunch",
     "district": "Tây Hồ",
     "domain": "food",
-    "expected_parent_ids": ["food_275"]
+    "expected_parent_ids": [
+      "food_275"
+    ]
   },
   {
-    "query": "Nhà Hàng Sen Việt Tây Hồ giá",
+    "id": "entity-019",
+    "group": "entity_lookup",
+    "query": "Nhà Hàng Sen Việt Tây Hồ",
     "district": "Tây Hồ",
     "domain": "food",
-    "expected_parent_ids": ["food_300"]
+    "expected_parent_ids": [
+      "food_300"
+    ]
   },
   {
+    "id": "entity-020",
+    "group": "entity_lookup",
     "query": "GangnamBox The Loop IPH",
     "district": "Cầu Giấy",
     "domain": "food",
-    "expected_parent_ids": ["food_315"]
+    "expected_parent_ids": [
+      "food_315"
+    ]
   },
   {
-    "query": "Trill Rooftop Cafe Cầu Giấy",
-    "district": "cau giay",
-    "domain": "food",
-    "expected_parent_ids": ["food_350"]
-  },
-  {
-    "query": "Mì Cay Sasin ở Cầu Giấy",
+    "id": "entity-021",
+    "group": "entity_lookup",
+    "query": "Gác Trịnh Cafe mở cửa",
     "district": "Cầu Giấy",
     "domain": "food",
-    "expected_parent_ids": ["food_375"]
+    "expected_parent_ids": [
+      "food_319"
+    ]
   },
   {
-    "query": "quán sushi ở Ba Vì",
+    "id": "entity-022",
+    "group": "entity_lookup",
+    "query": "Trill Rooftop Cafe Cầu Giấy",
+    "district": "Cầu Giấy",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_350"
+    ]
+  },
+  {
+    "id": "entity-023",
+    "group": "entity_lookup",
+    "query": "Mì Cay Sasin Cầu Giấy ở đâu",
+    "district": "Cầu Giấy",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_375"
+    ]
+  },
+  {
+    "id": "entity-024",
+    "group": "entity_lookup",
+    "query": "Phở Thìn 13 Lò Đúc ở đâu",
+    "district": "Hai Bà Trưng",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_401"
+    ]
+  },
+  {
+    "id": "entity-025",
+    "group": "entity_lookup",
+    "query": "TukTuk Thai Bistro Triệu Việt Vương",
+    "district": "Hai Bà Trưng",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_416"
+    ]
+  },
+  {
+    "id": "multi-001",
+    "group": "multi_constraint",
+    "query": "bún chả Obama giá 60k đổ về còn mở lúc 12h",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_002"
+    ],
+    "price_max": 60000,
+    "open_at": "12:00"
+  },
+  {
+    "id": "multi-002",
+    "group": "multi_constraint",
+    "query": "nộm bò khô phố Hàm Long dưới 35k lúc 12h",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_007"
+    ],
+    "price_max": 35000,
+    "open_at": "12:00"
+  },
+  {
+    "id": "multi-003",
+    "group": "multi_constraint",
+    "query": "kem lâu đời gần Hồ Gươm dưới 20k mở lúc 22h",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_011"
+    ],
+    "price_max": 20000,
+    "open_at": "22:00"
+  },
+  {
+    "id": "multi-004",
+    "group": "multi_constraint",
+    "query": "xôi xéo ăn đêm dưới 50k lúc 23h",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_016"
+    ],
+    "price_max": 50000,
+    "open_at": "23:00"
+  },
+  {
+    "id": "multi-005",
+    "group": "multi_constraint",
+    "query": "mỳ vằn thắn có sủi cảo dưới 60k mở lúc 18h",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_022"
+    ],
+    "price_max": 60000,
+    "open_at": "18:00"
+  },
+  {
+    "id": "multi-006",
+    "group": "multi_constraint",
+    "query": "phở nước dùng đục béo dưới 70k mở lúc 8h",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_031"
+    ],
+    "price_max": 70000,
+    "open_at": "08:00"
+  },
+  {
+    "id": "multi-007",
+    "group": "multi_constraint",
+    "query": "bún riêu sườn sụn dưới 50k còn mở lúc 20h",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_042"
+    ],
+    "price_max": 50000,
+    "open_at": "20:00"
+  },
+  {
+    "id": "multi-008",
+    "group": "multi_constraint",
+    "query": "há cảo chiên và mỳ vằn thắn gốc Hoa dưới 40k lúc 20h",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_047"
+    ],
+    "price_max": 40000,
+    "open_at": "20:00"
+  },
+  {
+    "id": "multi-009",
+    "group": "multi_constraint",
+    "query": "Việt V món Việt cho gia đình dưới 60k mở lúc 20h",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_055"
+    ],
+    "price_max": 60000,
+    "open_at": "20:00"
+  },
+  {
+    "id": "multi-010",
+    "group": "multi_constraint",
+    "query": "trà sữa ăn vặt cho nhóm bạn dưới 20k lúc 20h",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_061"
+    ],
+    "price_max": 20000,
+    "open_at": "20:00"
+  },
+  {
+    "id": "multi-011",
+    "group": "multi_constraint",
+    "query": "mỳ cay và trà sữa cho sinh viên dưới 30k lúc 21h",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_089"
+    ],
+    "price_max": 30000,
+    "open_at": "21:00"
+  },
+  {
+    "id": "multi-012",
+    "group": "multi_constraint",
+    "query": "Thống Gia món Việt cho gia đình dưới 60k lúc 20h",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_102"
+    ],
+    "price_max": 60000,
+    "open_at": "20:00"
+  },
+  {
+    "id": "multi-013",
+    "group": "multi_constraint",
+    "query": "bò né ăn sáng cho sinh viên dưới 20k lúc 7h",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_110"
+    ],
+    "price_max": 20000,
+    "open_at": "07:00"
+  },
+  {
+    "id": "multi-014",
+    "group": "multi_constraint",
+    "query": "lẩu cho nhóm đông dưới 50k còn mở lúc 23h",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_118"
+    ],
+    "price_max": 50000,
+    "open_at": "23:00"
+  },
+  {
+    "id": "multi-015",
+    "group": "multi_constraint",
+    "query": "bánh kẹp ăn vặt sinh viên dưới 20k mở lúc 18h",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_132"
+    ],
+    "price_max": 20000,
+    "open_at": "18:00"
+  },
+  {
+    "id": "multi-016",
+    "group": "multi_constraint",
+    "query": "món chay thanh đạm giá 15k còn mở lúc 18h",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_146"
+    ],
+    "price_max": 15000,
+    "open_at": "18:00"
+  },
+  {
+    "id": "multi-017",
+    "group": "multi_constraint",
+    "query": "mì Quảng miền Trung giá 20k mở lúc 12h",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_158"
+    ],
+    "price_max": 20000,
+    "open_at": "12:00"
+  },
+  {
+    "id": "multi-018",
+    "group": "multi_constraint",
+    "query": "TAIYO sushi BBQ dưới 50k mở lúc 12h",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_177"
+    ],
+    "price_max": 50000,
+    "open_at": "12:00"
+  },
+  {
+    "id": "multi-019",
+    "group": "multi_constraint",
+    "query": "pizza đồ ăn nhanh dưới 20k còn mở lúc 18h",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_192"
+    ],
+    "price_max": 20000,
+    "open_at": "18:00"
+  },
+  {
+    "id": "multi-020",
+    "group": "multi_constraint",
+    "query": "Pizza 4P's cho gia đình dưới 200k mở lúc 20h",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_205"
+    ],
+    "price_max": 200000,
+    "open_at": "20:00"
+  },
+  {
+    "id": "multi-021",
+    "group": "multi_constraint",
+    "query": "steak hải sản hẹn hò từ 300k mở lúc 20h",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_220"
+    ],
+    "price_min": 300000,
+    "open_at": "20:00"
+  },
+  {
+    "id": "multi-022",
+    "group": "multi_constraint",
+    "query": "đồ chay tốt cho sức khỏe dưới 120k mở lúc 20h",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_227"
+    ],
+    "price_max": 120000,
+    "open_at": "20:00"
+  },
+  {
+    "id": "multi-023",
+    "group": "multi_constraint",
+    "query": "izakaya Nhật từ 300k còn mở lúc 0h30",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_237"
+    ],
+    "price_min": 300000,
+    "open_at": "00:30"
+  },
+  {
+    "id": "multi-024",
+    "group": "multi_constraint",
+    "query": "sushi Nhật hẹn hò từ 200k mở lúc 20h",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_250"
+    ],
+    "price_min": 200000,
+    "open_at": "20:00"
+  },
+  {
+    "id": "multi-025",
+    "group": "multi_constraint",
+    "query": "cafe bistro làm việc dưới 100k mở lúc 20h",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_263"
+    ],
+    "price_max": 100000,
+    "open_at": "20:00"
+  },
+  {
+    "id": "multi-026",
+    "group": "multi_constraint",
+    "query": "cà ri Ấn Độ bánh naan dưới 150k mở lúc 20h",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_284"
+    ],
+    "price_max": 150000,
+    "open_at": "20:00"
+  },
+  {
+    "id": "multi-027",
+    "group": "multi_constraint",
+    "query": "rooftop view đẹp dưới 100k còn mở lúc 22h",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_299"
+    ],
+    "price_max": 100000,
+    "open_at": "22:00"
+  },
+  {
+    "id": "multi-028",
+    "group": "multi_constraint",
+    "query": "cafe yên tĩnh làm việc dưới 50k mở lúc 22h",
+    "district": "Cầu Giấy",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_319"
+    ],
+    "price_max": 50000,
+    "open_at": "22:00"
+  },
+  {
+    "id": "multi-029",
+    "group": "multi_constraint",
+    "query": "rooftop check-in dưới 100k còn mở lúc 22h",
+    "district": "Cầu Giấy",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_350"
+    ],
+    "price_max": 100000,
+    "open_at": "22:00"
+  },
+  {
+    "id": "multi-030",
+    "group": "multi_constraint",
+    "query": "món Thái cho gia đình dưới 200k mở lúc 20h",
+    "district": "Hai Bà Trưng",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_416"
+    ],
+    "price_max": 200000,
+    "open_at": "20:00"
+  },
+  {
+    "id": "natural-001",
+    "group": "natural_need",
+    "query": "cafe hiện đại có bánh ngọt để ngồi làm việc",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_058"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-002",
+    "group": "natural_need",
+    "query": "trà sữa bình dân cho sinh viên và nhóm bạn",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_066"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-003",
+    "group": "natural_need",
+    "query": "quán gỏi cá trích hợp nhóm đông người",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_070"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-004",
+    "group": "natural_need",
+    "query": "pizza kiểu Ý phù hợp gia đình và dân văn phòng",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_072"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-005",
+    "group": "natural_need",
+    "query": "cafe giá hợp lý cho sinh viên và dân văn phòng",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_083"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-006",
+    "group": "natural_need",
+    "query": "trà sữa kèm đồ ăn vặt phù hợp trẻ em",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_087"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-007",
+    "group": "natural_need",
+    "query": "quán bê thui nóng bình dân cho đồng nghiệp",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_101"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-008",
+    "group": "natural_need",
+    "query": "quán gà và hải sản phong cách miền Trung",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_116"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-009",
+    "group": "natural_need",
+    "query": "quán nhậu bình dân cho nhóm đồng nghiệp",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_123"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-010",
+    "group": "natural_need",
+    "query": "cafe để học tập làm việc cho sinh viên",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_127"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-011",
+    "group": "natural_need",
+    "query": "quán chay thanh đạm giá sinh viên",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_146"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-012",
+    "group": "natural_need",
+    "query": "nhà hàng Nhật có cả sushi và BBQ",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_177"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-013",
+    "group": "natural_need",
+    "query": "pizza đồ ăn nhanh cho nhóm bạn và gia đình",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_192"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-014",
+    "group": "natural_need",
+    "query": "nhà hàng món Âu có view Hồ Tây để hẹn hò",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_202"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-015",
+    "group": "natural_need",
+    "query": "món Việt trong sân vườn yên tĩnh ven Hồ Tây",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_211"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-016",
+    "group": "natural_need",
+    "query": "cafe món Âu có lựa chọn món chay cho người nước ngoài",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_215"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-017",
+    "group": "natural_need",
+    "query": "steak và hải sản cao cấp cho buổi hẹn",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_220"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-018",
+    "group": "natural_need",
+    "query": "bistro không gian đẹp phù hợp hẹn hò",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_223"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-019",
+    "group": "natural_need",
+    "query": "nhà hàng chay tốt cho sức khỏe đi cùng gia đình",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_227"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-020",
+    "group": "natural_need",
+    "query": "quán nhậu Nhật kiểu izakaya mở khuya",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_237"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-021",
+    "group": "natural_need",
+    "query": "sushi sashimi Nhật phù hợp hẹn hò",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_250"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-022",
+    "group": "natural_need",
+    "query": "nhà hàng Ấn Độ truyền thống không gian sang trọng",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_253"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-023",
+    "group": "natural_need",
+    "query": "cafe bistro không gian đẹp để làm việc",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_263"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-024",
+    "group": "natural_need",
+    "query": "món Thái phong cách châu Á cho buổi hẹn",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_274"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-025",
+    "group": "natural_need",
+    "query": "cà ri Ấn Độ bánh naan cho khách du lịch",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_284"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-026",
+    "group": "natural_need",
+    "query": "cafe rooftop view đẹp để hẹn hò",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_299"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-027",
+    "group": "natural_need",
+    "query": "nhà hàng chay có không gian thiền trà thư giãn",
+    "district": "Cầu Giấy",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_310"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-028",
+    "group": "natural_need",
+    "query": "cafe yên tĩnh vừa làm việc vừa trò chuyện",
+    "district": "Cầu Giấy",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_319"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-029",
+    "group": "natural_need",
+    "query": "rooftop rộng để chụp ảnh và đi cùng bạn bè",
+    "district": "Cầu Giấy",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_350"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "natural-030",
+    "group": "natural_need",
+    "query": "món Thái có tom yum và pad thai cho gia đình",
+    "district": "Hai Bà Trưng",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_416"
+    ],
+    "min_unique_parent_ids": 3
+  },
+  {
+    "id": "no-answer-001",
+    "group": "no_answer",
+    "query": "quán phở ở Đống Đa",
+    "district": "Đống Đa",
+    "domain": "food",
+    "expected_parent_ids": []
+  },
+  {
+    "id": "no-answer-002",
+    "group": "no_answer",
+    "query": "sushi tại Thanh Xuân",
+    "district": "Thanh Xuân",
+    "domain": "food",
+    "expected_parent_ids": []
+  },
+  {
+    "id": "no-answer-003",
+    "group": "no_answer",
+    "query": "pizza ở Hà Đông",
+    "district": "Hà Đông",
+    "domain": "food",
+    "expected_parent_ids": []
+  },
+  {
+    "id": "no-answer-004",
+    "group": "no_answer",
+    "query": "cafe làm việc tại Long Biên",
+    "district": "Long Biên",
+    "domain": "food",
+    "expected_parent_ids": []
+  },
+  {
+    "id": "no-answer-005",
+    "group": "no_answer",
+    "query": "quán chay ở Hoàng Mai",
+    "district": "Hoàng Mai",
+    "domain": "food",
+    "expected_parent_ids": []
+  },
+  {
+    "id": "no-answer-006",
+    "group": "no_answer",
+    "query": "quán lẩu tại Nam Từ Liêm",
+    "district": "Nam Từ Liêm",
+    "domain": "food",
+    "expected_parent_ids": []
+  },
+  {
+    "id": "no-answer-007",
+    "group": "no_answer",
+    "query": "chỗ ăn brunch ở Bắc Từ Liêm",
+    "district": "Bắc Từ Liêm",
+    "domain": "food",
+    "expected_parent_ids": []
+  },
+  {
+    "id": "no-answer-008",
+    "group": "no_answer",
+    "query": "hải sản tại Ba Vì",
     "district": "Ba Vì",
     "domain": "food",
     "expected_parent_ids": []
+  },
+  {
+    "id": "no-answer-009",
+    "group": "no_answer",
+    "query": "món ăn dưới 1k ở Hoàn Kiếm",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [],
+    "price_max": 1000
+  },
+  {
+    "id": "no-answer-010",
+    "group": "no_answer",
+    "query": "nhà hàng từ 2 triệu ở Ba Đình",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [],
+    "price_min": 2000000
+  },
+  {
+    "id": "no-answer-011",
+    "group": "no_answer",
+    "query": "đồ ăn dưới 1k tại Tây Hồ",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [],
+    "price_max": 1000
+  },
+  {
+    "id": "no-answer-012",
+    "group": "no_answer",
+    "query": "quán từ 2 triệu ở Cầu Giấy",
+    "district": "Cầu Giấy",
+    "domain": "food",
+    "expected_parent_ids": [],
+    "price_min": 2000000
+  },
+  {
+    "id": "no-answer-013",
+    "group": "no_answer",
+    "query": "món Thái dưới 1k tại Hai Bà Trưng",
+    "district": "Hai Bà Trưng",
+    "domain": "food",
+    "expected_parent_ids": [],
+    "price_max": 1000
+  },
+  {
+    "id": "no-answer-014",
+    "group": "no_answer",
+    "query": "quán Tây Hồ còn mở lúc 4h sáng",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [],
+    "open_at": "04:00"
+  },
+  {
+    "id": "no-answer-015",
+    "group": "no_answer",
+    "query": "quán Cầu Giấy còn mở lúc 3h30 sáng",
+    "district": "Cầu Giấy",
+    "domain": "food",
+    "expected_parent_ids": [],
+    "open_at": "03:30"
+  },
+  {
+    "id": "typo-001",
+    "group": "typo_slang",
+    "query": "pho thin bo hoo o dau",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_001"
+    ]
+  },
+  {
+    "id": "typo-002",
+    "group": "typo_slang",
+    "query": "ca phe gian mo cua may gio",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_003"
+    ]
+  },
+  {
+    "id": "typo-003",
+    "group": "typo_slang",
+    "query": "bun thang ba duk",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_005"
+    ]
+  },
+  {
+    "id": "typo-004",
+    "group": "typo_slang",
+    "query": "oc ha tran dinh liet",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_010"
+    ]
+  },
+  {
+    "id": "typo-005",
+    "group": "typo_slang",
+    "query": "banh mi sot vang dinh ngan",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_025"
+    ]
+  },
+  {
+    "id": "typo-006",
+    "group": "typo_slang",
+    "query": "bun rieu tom cua hang bon",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_050"
+    ]
+  },
+  {
+    "id": "typo-007",
+    "group": "typo_slang",
+    "query": "com ga gia trann 1",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_075"
+    ]
+  },
+  {
+    "id": "typo-008",
+    "group": "typo_slang",
+    "query": "banh xeo be uyen dai lok",
+    "district": "Hoàn Kiếm",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_100"
+    ]
+  },
+  {
+    "id": "typo-009",
+    "group": "typo_slang",
+    "query": "bun bo hue dong baa quan",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_125"
+    ]
+  },
+  {
+    "id": "typo-010",
+    "group": "typo_slang",
+    "query": "che xa van ngoc trammm",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_150"
+    ]
+  },
+  {
+    "id": "typo-011",
+    "group": "typo_slang",
+    "query": "bun lanhh o dau",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_175"
+    ]
+  },
+  {
+    "id": "typo-012",
+    "group": "typo_slang",
+    "query": "bun bo hue ngoc diep gi bao nhieu",
+    "district": "Ba Đình",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_184"
+    ]
+  },
+  {
+    "id": "typo-013",
+    "group": "typo_slang",
+    "query": "6 degres ho tay mo den may gio",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_202"
+    ]
+  },
+  {
+    "id": "typo-014",
+    "group": "typo_slang",
+    "query": "nha hang sai gon 1970z",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_225"
+    ]
+  },
+  {
+    "id": "typo-015",
+    "group": "typo_slang",
+    "query": "the susi club tay ho",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_250"
+    ]
+  },
+  {
+    "id": "typo-016",
+    "group": "typo_slang",
+    "query": "maison de tet deccor",
+    "district": "Tây Hồ",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_275"
+    ]
+  },
+  {
+    "id": "typo-017",
+    "group": "typo_slang",
+    "query": "gangnambox the lop iph",
+    "district": "Cầu Giấy",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_315"
+    ]
+  },
+  {
+    "id": "typo-018",
+    "group": "typo_slang",
+    "query": "tril rooftop cafe cau giay",
+    "district": "Cầu Giấy",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_350"
+    ]
+  },
+  {
+    "id": "typo-019",
+    "group": "typo_slang",
+    "query": "mi cay sasin cau giayy",
+    "district": "Cầu Giấy",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_375"
+    ]
+  },
+  {
+    "id": "typo-020",
+    "group": "typo_slang",
+    "query": "tuktuk thai bistro trieu viet vuongg",
+    "district": "Hai Bà Trưng",
+    "domain": "food",
+    "expected_parent_ids": [
+      "food_416"
+    ]
   }
 ]

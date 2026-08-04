@@ -36,6 +36,9 @@ postgres_data/
 data/final/hanoi_knowledge_v*.json
 data/final/hanoi_food_v*.json
 
+# Local third-party imports must be reviewed before they are committed.
+data/imports/
+
 # Logs and caches
 *.log
 .cache/

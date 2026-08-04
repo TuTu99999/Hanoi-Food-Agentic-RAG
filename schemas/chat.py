@@ -1,12 +1,25 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional
 from datetime import datetime
+from uuid import UUID
 
 
 class ChatRequest(BaseModel):
     session_id: Optional[int] = Field(default=None, gt=0)
+    client_request_id: Optional[str] = Field(
+        default=None,
+        min_length=36,
+        max_length=36,
+    )
     question: str = Field(min_length=1, max_length=2000)
     district: Optional[str] = Field(default="Tất cả", max_length=100)
+
+    @field_validator("client_request_id")
+    @classmethod
+    def validate_client_request_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        return str(UUID(value))
 
     @field_validator("question")
     @classmethod

@@ -1,8 +1,8 @@
 # Agentic Hybrid RAG Food Hà Nội
 
-Ứng dụng gồm FastAPI, React/Vite, PostgreSQL, Qdrant, LangGraph và một
-Agentic Hybrid RAG tập trung vào ẩm thực Hà Nội. LLM dùng GitHub Models qua
-OpenAI-compatible API.
+Ứng dụng gồm FastAPI, React/Vite, PostgreSQL, Qdrant, LangGraph,
+Prometheus/Grafana và một Agentic Hybrid RAG tập trung vào ẩm thực Hà Nội. LLM
+dùng Gemini qua OpenAI-compatible API.
 
 ## Dịch vụ cần có
 
@@ -10,11 +10,12 @@ OpenAI-compatible API.
 - PostgreSQL
 - Qdrant tại `localhost:6333` (có thể chạy bằng Docker)
 - Node.js/npm
+- Docker Compose nếu chạy toàn bộ stack và dashboard monitoring
 
 ## Cấu hình
 
 Sao chép `.env.example` thành `.env`, sau đó điền URL database, JWT secret và
-GitHub token. Không commit `.env`. Vite có cấu hình development riêng tại
+Gemini API key. Không commit `.env`. Vite có cấu hình development riêng tại
 `frontend/.env.example`.
 
 Backend đọc alias từ `QDRANT_COLLECTION` và mặc định dùng
@@ -23,16 +24,36 @@ version mới sau khi uploader kiểm tra dữ liệu thành công. Ưu tiên c�
 `QDRANT_URL`; nếu FastAPI chạy trong Docker Compose, dùng URL service
 `http://qdrant:6333`.
 
-`LLM_BASE_URL`, `LLM_MODEL` và `EMBEDDING_MODEL` cũng được đọc từ environment.
+`LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_REASONING_EFFORT`,
+`LLM_MAX_OUTPUT_TOKENS` và `EMBEDDING_MODEL` cũng được đọc từ environment.
+Khi `LLM_API_KEY` trống, backend dùng `GEMINI_API_KEY`. RAG mặc định dùng
+`reasoning_effort=minimal` để ưu tiên câu trả lời grounded, nhanh và không để
+reasoning ẩn chiếm hết giới hạn output.
 Nếu đổi embedding model, phải tạo lại toàn bộ vectors trong collection version
 mới rồi chạy evaluation trước khi đổi alias.
+
+LangSmith tracing là tùy chọn và mặc định tắt. Để trace LangGraph, hybrid
+retrieval và LLM streaming, khai báo trong `.env` hoặc deployment secrets:
+
+```dotenv
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=replace-with-your-langsmith-key
+LANGSMITH_PROJECT=hanoi-food-agentic-rag
+LANGSMITH_ENDPOINT=https://api.smith.langchain.com
+LANGSMITH_WORKSPACE_ID=replace-when-required
+```
+
+Không commit API key. Nếu bật tracing nhưng chưa có key, backend tự tắt
+LangSmith và vẫn khởi động bình thường. Trace không gắn raw user ID, session ID,
+cookie hoặc JWT. LangSmith vẫn nhận câu hỏi, context retrieval và câu trả lời để
+debug RAG; không bật tracing cho dữ liệu nhạy cảm nếu chưa có bước redaction.
 
 Timeout, retry có exponential backoff + jitter và circuit breaker dùng các biến
 `QDRANT_TIMEOUT_SECONDS`, `EXTERNAL_RETRY_*` và `CIRCUIT_BREAKER_*`. Giá trị
 mặc định trong `.env.example` phù hợp để bắt đầu, không cần chỉnh khi chạy local.
 
 Production bắt buộc khai báo `APP_ENV=production`, `CORS_ORIGINS` HTTPS,
-`GITHUB_TOKEN` hợp lệ, JWT secret tối thiểu 32 byte và
+`TRUSTED_HOSTS`, `LLM_API_KEY` hợp lệ, JWT secret tối thiểu 32 byte và
 `AUTH_COOKIE_SECURE=true`. Backend sẽ từ chối khởi động nếu cấu hình không hợp
 lệ.
 
@@ -59,7 +80,7 @@ alembic upgrade head
 ```
 
 Khi `DB_SCHEMA_CHECK=true` (mặc định), backend sẽ từ chối khởi động nếu database
-chưa ở revision `20260727_0002`; nhờ đó code mới không vô tình chạy trên bảng
+chưa ở revision `20260729_0004`; nhờ đó code mới không vô tình chạy trên bảng
 `messages` cũ.
 
 Migration P0 chuyển mỗi bản ghi lịch sử cũ `{question, answer}` thành hai
@@ -71,6 +92,8 @@ user(question) -> assistant(answer)
 
 Migration cũng thêm `turn_id`, `position`, `status`, `next_position`, các
 constraint chống trùng và `ON DELETE CASCADE` từ session xuống message.
+Hai migration tiếp theo thêm `token_version`, rate-limit bucket, UUID
+`client_request_id` và index phục vụ cursor pagination.
 
 Kiểm tra revision hiện tại:
 
@@ -119,6 +142,7 @@ Health check:
 ```text
 GET /health/live   -> process FastAPI còn hoạt động
 GET /health/ready  -> PostgreSQL, Qdrant và trạng thái LLM/RAG
+GET /metrics       -> Prometheus metrics trong mạng nội bộ
 ```
 
 `ready` không gửi prompt tới LLM để tránh tốn token; nó kiểm tra client đã cấu
@@ -126,6 +150,11 @@ hình và circuit breaker chưa mở. PostgreSQL và Qdrant được kiểm tra 
 
 Mỗi response có `X-Request-ID`. Backend log JSON gồm request ID, session ID,
 route, status và latency; lỗi nội bộ chỉ nằm trong log, không trả exception ra frontend.
+
+Prometheus thu thập `/metrics` mỗi 15 giây và Grafana được provision sẵn
+dashboard `Hanoi Food RAG - Operations`. Metrics chỉ dùng label có tập giá trị
+nhỏ như route, status và stream outcome; không lưu user ID, session ID hoặc nội
+dung câu hỏi.
 
 ## Xây dựng knowledge base
 
@@ -140,6 +169,20 @@ Metadata giá và giờ mở cửa được chuẩn hóa song song với giá tr
 - `opening_intervals`, `closes_next_day`, `opening_schedule_scope`
 - `sub_category_normalized`, `tags_normalized`
 
+POC metadata Foody Hà Nội được giữ riêng để review, không tự động ghi đè catalog:
+
+```powershell
+python scripts/crawl_foody_hanoi.py `
+  --limit 20 `
+  --delay-seconds 3 `
+  --acknowledge-terms
+```
+
+Script giới hạn cứng 50 record, không lưu review, ảnh, username hoặc số điện
+thoại. Hãy đọc lại điều khoản Foody trước mỗi lần chạy. File kết quả nằm tại
+`data/imports/foody_hanoi_poc.json`; chỉ merge record đã kiểm chứng vào
+`data/raw/food_raw.json`.
+
 Chạy từ thư mục gốc:
 
 ```powershell
@@ -149,7 +192,12 @@ python -m embedding.upload_to_qdrant --dry-run
 python -m embedding.upload_to_qdrant
 ```
 
-Uploader tạo collection vật lý `hanoi_food_v1`, kiểm tra point count và payload
+Pipeline tạo `data/processed/food_manifest.json` và manifest cạnh file vector.
+Mỗi chunk mang cùng một `knowledge_version`; runtime từ chối hợp nhất BM25 và
+Qdrant nếu hai nhánh trả về version khác nhau. Record cũ chưa có nguồn được giữ
+trung thực với `verification_status=unverified`.
+
+Uploader tạo collection vật lý `hanoi_food_v2`, kiểm tra point count và payload
 mẫu, sau đó mới chuyển alias `hanoi_food_current`. Collection cũ không bị xóa
 nên có thể rollback. Sau khi upload thành công, đặt:
 
@@ -171,12 +219,33 @@ python -m embedding.upload_to_qdrant `
   --input data/final/hanoi_food_v2.json `
   --collection hanoi_food_v2 `
   --alias hanoi_food_current `
-  --expected-points 624 `
+  --expected-points 773 `
   --expected-parents 418
 ```
 
 Hai count trên là chốt an toàn của dữ liệu hiện tại. Nếu đã review và chủ động đổi
 dữ liệu/chunking, thay chúng bằng số chunk và số food record mà pipeline vừa in ra.
+
+Retrieval benchmark có 120 case trên 65 quán: entity lookup, nhu cầu tự nhiên,
+multi-constraint, typo/slang và no-answer. Trước khi chạy, có thể xác nhận file
+JSON vẫn khớp catalog và bộ seed đã review:
+
+```powershell
+python -m scripts.build_retrieval_cases --check
+```
+
+Đánh giá exact/BM25 hoàn toàn offline (cũng được gate trong CI):
+
+```powershell
+python -m embedding.evaluate_retrieval `
+  --mode lexical `
+  --top-k 5 `
+  --min-accuracy 0.90
+```
+
+Report tách accuracy theo nhóm, kiểm tra hard constraint giá/quận/giờ và thống kê
+độ đa dạng entity được trả về. Điểm lexical là regression gate deterministic,
+không thay thế đánh giá semantic/hybrid trên Qdrant hoặc hidden test set.
 
 Đánh giá retrieval, recall@k, district filter và latency:
 
@@ -195,12 +264,13 @@ retrieval branch đang lỗi, tránh coi kết quả fallback là một lần đ
 Đánh giá ML query router trên bộ calibration tách khỏi training:
 
 ```powershell
-python -m rag.evaluate_query_router --min-accuracy 0.80
+python -m rag.evaluate_query_router --min-accuracy 0.90
 ```
 
-Threshold mặc định `0.35` được chọn từ bộ calibration hiện tại: intent accuracy
-`88,57%`, high-confidence coverage `68,57%` và high-confidence accuracy
-`95,83%`. Đây là số calibration, không phải kết quả trên một hidden test set.
+Dataset hiện có 490 mẫu train và 175 mẫu calibration, cân bằng trên 7 intent.
+Threshold mặc định `0.35` cho intent accuracy `96%`, high-confidence coverage
+`92%` và high-confidence accuracy `97,52%`. Đây là số calibration, không phải
+kết quả trên một hidden test set.
 Prediction dưới ngưỡng không bị loại; planner chuyển về hybrid.
 
 Cài toàn bộ dependency runtime, test và evaluation:
@@ -255,8 +325,26 @@ docker compose up --build -d
 docker compose ps
 ```
 
-Mở frontend tại `http://localhost:3000`, API tại `http://localhost:8000`.
-Backend tự chạy `alembic upgrade head` trước khi khởi động. Lần chạy Docker đầu
+Nếu chạy backend trực tiếp bằng Uvicorn để có hot reload, hãy mở Docker Desktop
+rồi chạy hai terminal:
+
+```powershell
+# Terminal 1
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# Terminal 2
+docker compose -f compose.monitoring.yml up -d
+```
+
+File monitoring riêng chỉ chạy Prometheus và Grafana. Prometheus dùng
+`host.docker.internal:8000` để đọc metrics từ Uvicorn trên máy, không tạo thêm
+backend container nên không bị trùng cổng `8000`.
+
+Mở frontend tại `http://localhost:3000`, API tại `http://localhost:8000`,
+Prometheus tại `http://localhost:9090` và Grafana tại
+`http://localhost:3001`. Đăng nhập Grafana local bằng `admin/admin`, sau đó mở
+folder `Hanoi Food RAG`; đổi `GRAFANA_ADMIN_PASSWORD` nếu máy được chia sẻ.
+Service one-shot `migrate` chạy `alembic upgrade head` trước backend. Lần chạy Docker đầu
 tiên, service `model-cache` tải embedding model vào volume `huggingface_cache`.
 Backend chỉ khởi động sau khi model đã sẵn sàng và luôn dùng local cache, nên
 request đầu tiên không phải tải model.
@@ -277,14 +365,25 @@ docker compose down
 ```
 
 External volume `qdrant_storage` không bị xóa bởi `docker compose down -v`.
-Lệnh đó vẫn xóa PostgreSQL và model cache do Compose quản lý, vì vậy chỉ dùng
-khi chủ động reset các dữ liệu này.
+Lệnh đó vẫn xóa PostgreSQL, model cache, lịch sử Prometheus và cấu hình nội bộ
+Grafana do Compose quản lý, vì vậy chỉ dùng khi chủ động reset các dữ liệu này.
 
 `compose.prod.yml` dùng image đã publish, không public PostgreSQL/Qdrant/backend
-ra host. Production phải truyền secret qua environment hoặc secret manager,
-không ghi chúng vào image hay commit vào Git. Qdrant production bắt buộc có
-`QDRANT_API_KEY`, external volume phải được tạo trước và server phải có HTTPS
-reverse proxy/load balancer ở phía trước frontend.
+ra host. Caddy là edge proxy duy nhất mở cổng `80/443`, tự cấp HTTPS cho
+`PUBLIC_DOMAIN` và thêm HSTS. Production phải truyền secret qua environment hoặc
+secret manager, không ghi chúng vào image hay commit vào Git. Qdrant production
+bắt buộc có `QDRANT_API_KEY` và external volume phải được tạo trước.
+
+Trước khi chạy production, trỏ DNS về server rồi khai báo ít nhất
+`PUBLIC_DOMAIN`, `ACME_EMAIL`, `DATABASE_URL`,
+`POSTGRES_PASSWORD`, `JWT_SECRET_KEY`, `LLM_API_KEY`, `QDRANT_API_KEY`,
+`BACKEND_IMAGE`, `FRONTEND_IMAGE` và `GRAFANA_ADMIN_PASSWORD`. Endpoint
+`/metrics` không được Caddy public ra Internet; hệ thống monitoring phải scrape
+từ mạng nội bộ.
+`TRUST_PROXY_HEADERS=true` chỉ an toàn với topology này vì backend không mở port
+ra host và Caddy là ingress duy nhất; không public backend trực tiếp.
+Prometheus và Grafana production chỉ bind `127.0.0.1`; xem dashboard từ xa qua
+SSH tunnel thay vì public cổng `3001` trực tiếp.
 
 ## GitHub Actions CI
 
@@ -307,10 +406,19 @@ portfolio.
   Bearer-only API client không mang auth cookie thì không cần CSRF check.
 - `GET /api/auth/me` kiểm tra phiên đăng nhập.
 - `POST /api/chat/stream` yêu cầu đăng nhập, kiểm tra ownership và lưu lịch sử.
+- FE gửi UUID `client_request_id`; retry cùng UUID trả lại đúng turn và không gọi
+  LLM hoặc trừ quota lần hai.
 - SSE dùng các event `session`, `token`, `done`, `error`.
-- `GET /api/history/{session_id}` trả message `{role, content, status, ...}`.
-- Chat được giới hạn theo user bằng dữ liệu PostgreSQL để hoạt động đồng nhất
-  giữa nhiều worker.
+- `GET /api/history?limit=&cursor=` và
+  `GET /api/history/{session_id}?limit=&cursor=` dùng cursor pagination.
+- Login/register, chat burst và quota AI request theo user/toàn hệ thống dùng
+  bucket PostgreSQL để hoạt động đồng nhất giữa nhiều worker. Đây là cost guard
+  bảo thủ, không phải phép đếm token chính xác từ provider; bucket hết hạn được
+  dọn khi backend khởi động.
+- Logout tăng `token_version`, vì vậy JWT đã lấy trước đó không dùng lại được.
+- Auth/chat/history trả `Cache-Control: private, no-cache, no-store`.
+- Prometheus tách outcome stream `completed/error/timeout/cancelled/replayed`
+  dù HTTP SSE đã bắt đầu với status `200`.
 
 ## Agentic Hybrid RAG v1
 

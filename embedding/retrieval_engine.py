@@ -158,6 +158,23 @@ class RetrievalEngine:
                 "Food catalog is required for hybrid retrieval."
             )
 
+    @classmethod
+    def for_lexical_search(
+        cls,
+        catalog_path: Path | str = DEFAULT_CATALOG_PATH,
+    ) -> "RetrievalEngine":
+        """Build exact/BM25 search without loading Qdrant or a model."""
+        engine = cls.__new__(cls)
+        resolved_path = Path(catalog_path)
+        if not resolved_path.is_absolute():
+            resolved_path = PROJECT_ROOT / resolved_path
+        engine.lexical_index = cls._load_lexical_index(resolved_path)
+        if engine.lexical_index is None:
+            raise RetrievalConfigurationError(
+                "Food catalog is required for lexical retrieval."
+            )
+        return engine
+
     def search(
         self,
         query: str,
@@ -165,6 +182,7 @@ class RetrievalEngine:
         district_filter: Optional[str] = None,
         domain_filter: Optional[str] = None,
         category_filter: Optional[str] = None,
+        price_min_filter: Optional[int] = None,
         price_max_filter: Optional[int] = None,
         open_at_filter: Optional[str] = None,
         min_score: float = DEFAULT_MIN_SCORE,
@@ -178,6 +196,7 @@ class RetrievalEngine:
             district_filter=district_filter,
             domain_filter=domain_filter,
             category_filter=category_filter,
+            price_min_filter=price_min_filter,
             price_max_filter=price_max_filter,
             open_at_filter=open_at_filter,
             min_score=min_score,
@@ -193,6 +212,7 @@ class RetrievalEngine:
         district_filter: Optional[str] = None,
         domain_filter: Optional[str] = "food",
         category_filter: Optional[str] = None,
+        price_min_filter: Optional[int] = None,
         price_max_filter: Optional[int] = None,
         open_at_filter: Optional[str] = None,
         min_score: float = DEFAULT_MIN_SCORE,
@@ -213,8 +233,18 @@ class RetrievalEngine:
             raise ValueError("top_k must be greater than zero.")
         if not -1 <= min_score <= 1:
             raise ValueError("min_score must be between -1 and 1.")
+        if price_min_filter is not None and price_min_filter <= 0:
+            raise ValueError("price_min_filter must be greater than zero.")
         if price_max_filter is not None and price_max_filter <= 0:
             raise ValueError("price_max_filter must be greater than zero.")
+        if (
+            price_min_filter is not None
+            and price_max_filter is not None
+            and price_min_filter > price_max_filter
+        ):
+            raise ValueError(
+                "price_min_filter cannot be greater than price_max_filter."
+            )
         if domain_filter and normalize_text(domain_filter) != "food":
             raise ValueError("This retrieval engine only supports food data.")
 
@@ -228,6 +258,7 @@ class RetrievalEngine:
             lexical_index.count_matching_filters(
                 district=district_filter,
                 category=category_filter,
+                price_min=price_min_filter,
                 price_max=price_max_filter,
                 open_at=open_at_filter,
             )
@@ -243,6 +274,7 @@ class RetrievalEngine:
                 query=query,
                 district=district_filter,
                 category=category_filter,
+                price_min=price_min_filter,
                 price_max=price_max_filter,
                 open_at=open_at_filter,
                 limit=max(top_k * 3, 10),
@@ -276,6 +308,7 @@ class RetrievalEngine:
                 query=query,
                 district=district_filter,
                 category=category_filter,
+                price_min=price_min_filter,
                 price_max=price_max_filter,
                 open_at=open_at_filter,
                 limit=max(top_k * 5, 20),
@@ -289,12 +322,14 @@ class RetrievalEngine:
                         top_k=max(top_k * 4, 20),
                         district_filter=district_filter,
                         category_filter=category_filter,
+                        price_min_filter=price_min_filter,
                         price_max_filter=price_max_filter,
                         open_at_filter=open_at_filter,
                         min_score=min_score,
                         collection_name=collection_name,
                     )
                 )
+                self._validate_knowledge_versions(semantic_results)
                 result_groups["semantic"] = semantic_results
             except Exception as exc:
                 if (
@@ -336,6 +371,7 @@ class RetrievalEngine:
         top_k: int,
         district_filter: Optional[str],
         category_filter: Optional[str],
+        price_min_filter: Optional[int],
         price_max_filter: Optional[int],
         open_at_filter: Optional[str],
         min_score: float,
@@ -348,6 +384,7 @@ class RetrievalEngine:
             district=district_filter,
             domain="food",
             category=category_filter,
+            price_min=price_min_filter,
             price_max=price_max_filter,
         )
 
@@ -373,6 +410,7 @@ class RetrievalEngine:
             document = self._to_document(hit.payload or {}, semantic_score)
             if not self._matches_structured_filters(
                 document,
+                price_min_filter=price_min_filter,
                 price_max_filter=price_max_filter,
                 open_at_filter=open_at_filter,
             ):
@@ -419,14 +457,25 @@ class RetrievalEngine:
     def _matches_structured_filters(
         document: Dict[str, Any],
         *,
+        price_min_filter: Optional[int],
         price_max_filter: Optional[int],
         open_at_filter: Optional[str],
     ) -> bool:
-        if price_max_filter is not None:
+        # A restaurant matches when its available price range overlaps the
+        # range requested by the user.
+        if price_min_filter is not None:
             document_price_max = document.get("price_max")
             if (
                 not isinstance(document_price_max, int)
-                or document_price_max > price_max_filter
+                or document_price_max < price_min_filter
+            ):
+                return False
+
+        if price_max_filter is not None:
+            document_price_min = document.get("price_min")
+            if (
+                not isinstance(document_price_min, int)
+                or document_price_min > price_max_filter
             ):
                 return False
 
@@ -437,6 +486,28 @@ class RetrievalEngine:
             return False
 
         return True
+
+    def _validate_knowledge_versions(
+        self,
+        semantic_documents: List[Dict[str, Any]],
+    ) -> None:
+        lexical_index = getattr(self, "lexical_index", None)
+        expected_version = getattr(
+            lexical_index,
+            "knowledge_version",
+            None,
+        )
+        if not expected_version or not semantic_documents:
+            return
+
+        semantic_versions = {
+            str(document.get("knowledge_version") or "").strip()
+            for document in semantic_documents
+        }
+        if semantic_versions != {expected_version}:
+            raise RetrievalConfigurationError(
+                "Lexical and semantic indexes use different knowledge versions."
+            )
 
     @staticmethod
     def _load_lexical_index(path: Path) -> Optional[LexicalIndex]:
@@ -526,15 +597,47 @@ class RetrievalEngine:
 
     def check_ready(self) -> None:
         self.client.get_collection(self.collection_name)
+        lexical_index = getattr(self, "lexical_index", None)
+        expected_version = getattr(
+            lexical_index,
+            "knowledge_version",
+            None,
+        )
+        if not expected_version:
+            return
+
+        records, _ = self.client.scroll(
+            collection_name=self.collection_name,
+            limit=1,
+            with_payload=["knowledge_version"],
+            with_vectors=False,
+        )
+        if not records:
+            raise RetrievalConfigurationError(
+                "Qdrant collection does not contain any food document."
+            )
+        self._validate_knowledge_versions(
+            [
+                {
+                    "knowledge_version": (
+                        record.payload or {}
+                    ).get("knowledge_version")
+                }
+                for record in records
+            ]
+        )
 
     def close(self) -> None:
-        self.client.close()
+        client = getattr(self, "client", None)
+        if client is not None:
+            client.close()
 
     @staticmethod
     def _build_filter(
         district: Optional[str],
         domain: Optional[str],
         category: Optional[str],
+        price_min: Optional[int] = None,
         price_max: Optional[int] = None,
     ) -> Optional[Filter]:
         conditions = []
@@ -569,8 +672,16 @@ class RetrievalEngine:
         if price_max is not None:
             conditions.append(
                 FieldCondition(
-                    key="price_max",
+                    key="price_min",
                     range=Range(lte=price_max),
+                )
+            )
+
+        if price_min is not None:
+            conditions.append(
+                FieldCondition(
+                    key="price_max",
+                    range=Range(gte=price_min),
                 )
             )
 
@@ -606,6 +717,7 @@ class RetrievalEngine:
             "chunk_index": value("chunk_index", 0),
             "parent_id": value("parent_id"),
             "domain": value("domain"),
+            "knowledge_version": value("knowledge_version"),
             "title": value("title"),
             "address": value("address"),
             "district": district,
@@ -639,6 +751,15 @@ class RetrievalEngine:
                 opening_data["opening_schedule_scope"],
             ),
             "tags": value("tags", []),
+            "source_name": value("source_name", None),
+            "source_url": value("source_url", None),
+            "retrieved_at": value("retrieved_at", None),
+            "last_verified_at": value("last_verified_at", None),
+            "license": value("license", None),
+            "verification_status": value(
+                "verification_status",
+                "unknown",
+            ),
             "content": content,
             # Keep "text" during the RAG integration transition.
             "text": content,

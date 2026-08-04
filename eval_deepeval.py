@@ -166,7 +166,7 @@ def evaluate_conversations(
 ) -> list[dict[str, Any]]:
     params = deepeval["MultiTurnParams"]
     metric = deepeval["ConversationalGEval"](
-        name="Follow-up constraint retention",
+        name="Multi-turn food assistant behavior",
         evaluation_steps=[
             (
                 "Read the whole conversation and identify the food, district, "
@@ -174,7 +174,8 @@ def evaluate_conversations(
             ),
             (
                 "Verify each assistant response follows the latest user intent "
-                "while retaining constraints that were not explicitly changed."
+                "while retaining constraints that were not explicitly changed, "
+                "and drops constraints the user explicitly clears."
             ),
             (
                 "When the user reverses a constraint such as 'đổ về' to "
@@ -182,8 +183,18 @@ def evaluate_conversations(
                 "instead of fabricating or keeping the old constraint."
             ),
             (
+                "When the user switches district or topic, verify the old hard "
+                "filter is not carried into the new request."
+            ),
+            (
+                "For ambiguous or compared venues, verify fields from different "
+                "entities are never mixed and clarification is requested when "
+                "the available evidence cannot identify one venue."
+            ),
+            (
                 "Verify factual recommendations are supported by the retrieval "
-                "context attached to the corresponding assistant turn."
+                "context attached to the corresponding assistant turn; empty "
+                "context must lead to an honest no-answer."
             ),
         ],
         evaluation_params=[

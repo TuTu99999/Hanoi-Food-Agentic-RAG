@@ -2,8 +2,10 @@ import asyncio
 from contextlib import asynccontextmanager
 import logging
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import inspect, text
 
 from core.config import settings
@@ -11,16 +13,17 @@ from core.observability import (
     RequestContextMiddleware,
     configure_logging,
 )
-from core.security import validate_csrf_request
+from core.security import NoStoreMiddleware, validate_csrf_request
 from database.connection import engine
 from rag.Rag import RAGPipeline
 from routers import auth, chat, health, history
+from services.rate_limit_service import cleanup_expired_rate_limits_task
 
 
 configure_logging(settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
-EXPECTED_DATABASE_REVISION = "20260727_0002"
+EXPECTED_DATABASE_REVISION = "20260729_0004"
 
 
 def verify_database_revision() -> None:
@@ -58,6 +61,14 @@ async def lifespan(_app: FastAPI):
 
     try:
         await asyncio.to_thread(verify_database_revision)
+        deleted_buckets = await asyncio.to_thread(
+            cleanup_expired_rate_limits_task
+        )
+        if deleted_buckets:
+            logger.info(
+                "Expired rate-limit buckets removed.",
+                extra={"deleted_count": deleted_buckets},
+            )
         rag_pipeline = RAGPipeline()
         await asyncio.to_thread(rag_pipeline.warmup)
         _app.state.rag_pipeline = rag_pipeline
@@ -84,6 +95,14 @@ app = FastAPI(
 # 1. MIDDLEWARE
 # ==========================================
 app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=list(settings.TRUSTED_HOSTS),
+)
+app.add_middleware(
+    NoStoreMiddleware,
+    path_prefixes=("/api/auth", "/api/chat", "/api/history"),
+)
+app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.CORS_ORIGINS),
     allow_credentials=True,
@@ -100,6 +119,16 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 app.include_router(history.router, prefix="/api")
 app.include_router(health.router)
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics():
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST,
+        headers={"Cache-Control": "no-store"},
+    )
+
 
 @app.get("/")
 def root():

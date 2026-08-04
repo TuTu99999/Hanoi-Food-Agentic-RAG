@@ -207,6 +207,7 @@ class AgenticRAGState(TypedDict, total=False):
     collection_name: str | None
     district: str | None
     category_filter: str | None
+    price_min_filter: int | None
     price_max_filter: int | None
     open_at_filter: str | None
     requested_fields: tuple[str, ...]
@@ -257,6 +258,7 @@ class AgenticRAGResult:
     branch_counts: dict[str, int]
     branch_errors: tuple[str, ...]
     exact_shortcut_used: bool
+    price_min_filter: int | None
     price_max_filter: int | None
     open_at_filter: str | None
 
@@ -323,33 +325,43 @@ class AgenticRAGWorkflow:
         if not isinstance(query, str) or not query.strip():
             raise ValueError("query must not be empty")
 
+        graph_input = {
+            "original_query": query.strip(),
+            "search_query": (
+                search_query.strip()
+                if isinstance(search_query, str)
+                and search_query.strip()
+                else query.strip()
+            ),
+            "history": self._clean_history(history),
+            "collection_name": collection_name,
+            "district": district,
+            "category_filter": None,
+            "price_min_filter": None,
+            "price_max_filter": None,
+            "open_at_filter": None,
+            "retry_count": 0,
+            "documents": [],
+            "candidate_count": 0,
+            "accepted_count": 0,
+            "filter_match_count": None,
+            "branch_counts": {},
+            "branch_errors": (),
+            "exact_shortcut_used": False,
+            "retrieval_failed": False,
+            "answer_mode": "direct",
+            "direct_answer": None,
+        }
         final_state = self.graph.invoke(
-            {
-                "original_query": query.strip(),
-                "search_query": (
-                    search_query.strip()
-                    if isinstance(search_query, str)
-                    and search_query.strip()
-                    else query.strip()
-                ),
-                "history": self._clean_history(history),
-                "collection_name": collection_name,
-                "district": district,
-                "category_filter": None,
-                "price_max_filter": None,
-                "open_at_filter": None,
-                "retry_count": 0,
-                "documents": [],
-                "candidate_count": 0,
-                "accepted_count": 0,
-                "filter_match_count": None,
-                "branch_counts": {},
-                "branch_errors": (),
-                "exact_shortcut_used": False,
-                "retrieval_failed": False,
-                "answer_mode": "direct",
-                "direct_answer": None,
-            }
+            graph_input,
+            config={
+                "run_name": "agentic_hybrid_rag",
+                "tags": ["food", "hybrid-retrieval"],
+                "metadata": {
+                    "collection": collection_name or "default",
+                    "district": district or "all",
+                },
+            },
         )
         return AgenticRAGResult(
             answer_mode=final_state.get("answer_mode", "direct"),
@@ -382,6 +394,7 @@ class AgenticRAGWorkflow:
             exact_shortcut_used=bool(
                 final_state.get("exact_shortcut_used", False)
             ),
+            price_min_filter=final_state.get("price_min_filter"),
             price_max_filter=final_state.get("price_max_filter"),
             open_at_filter=final_state.get("open_at_filter"),
         )
@@ -407,14 +420,33 @@ class AgenticRAGWorkflow:
             confidence=confidence,
             source=source,
         )
+        price_min, price_max = self._extract_price_filters(
+            query,
+            state.get("history", []),
+        )
+        previous_query = self._previous_user_query(
+            state.get("history", [])
+        )
+        district = self._resolve_district(
+            query=query,
+            provided_district=state.get("district"),
+        )
+        if (
+            district is None
+            and state.get("district") is None
+            and previous_query
+            and self._is_follow_up(query)
+        ):
+            district = self._resolve_district(
+                query=previous_query,
+                provided_district=None,
+            )
 
         return {
-            "district": self._resolve_district(
-                query=query,
-                provided_district=state.get("district"),
-            ),
+            "district": district,
             "requested_fields": self._extract_requested_fields(query),
-            "price_max_filter": self._extract_price_max(query),
+            "price_min_filter": price_min,
+            "price_max_filter": price_max,
             "open_at_filter": self._extract_open_at(query),
             "has_food_signal": self._has_food_signal(query),
             "intent": intent,
@@ -474,6 +506,7 @@ class AgenticRAGWorkflow:
                 district_filter=state.get("district"),
                 domain_filter=FOOD_DOMAIN,
                 category_filter=state.get("category_filter"),
+                price_min_filter=state.get("price_min_filter"),
                 price_max_filter=state.get("price_max_filter"),
                 open_at_filter=state.get("open_at_filter"),
                 min_score=self.min_score,
@@ -523,6 +556,7 @@ class AgenticRAGWorkflow:
         hard_filter_exists = bool(
             state.get("district")
             or state.get("category_filter")
+            or state.get("price_min_filter") is not None
             or state.get("price_max_filter") is not None
             or state.get("open_at_filter")
         )
@@ -636,6 +670,7 @@ class AgenticRAGWorkflow:
             # Hard filters are deliberately not changed here.
             "district": state.get("district"),
             "category_filter": state.get("category_filter"),
+            "price_min_filter": state.get("price_min_filter"),
             "price_max_filter": state.get("price_max_filter"),
             "open_at_filter": state.get("open_at_filter"),
         }
@@ -783,23 +818,130 @@ class AgenticRAGWorkflow:
     @staticmethod
     def _extract_price_max(query: str) -> int | None:
         normalized_query = normalize_text(query)
+        amount_pattern = (
+            r"(\d+(?:\s+\d{3})*)\s*"
+            r"(k|nghin|ngan|dong|d)?"
+        )
+        range_match = re.search(
+            rf"(?:tu\s+)?{amount_pattern}\s+den\s+{amount_pattern}",
+            normalized_query,
+        )
+        if range_match:
+            return AgenticRAGWorkflow._price_amount(
+                range_match.group(3),
+                range_match.group(4),
+            )
+
         match = re.search(
-            r"(?:duoi|toi da|khong qua|ngan sach(?: la)?|tam)"
-            r"\s+(\d+(?:\s+\d{3})*)"
-            r"\s*(k|nghin|ngan|dong|d)?\b",
+            rf"(?:duoi|toi da|khong qua|ngan sach(?: la)?|tam)"
+            rf"\s+{amount_pattern}",
             normalized_query,
         )
         if not match:
+            match = re.search(
+                rf"{amount_pattern}\s+(?:do ve|tro xuong)",
+                normalized_query,
+            )
+        if not match:
             return None
 
-        raw_number = match.group(1)
+        return AgenticRAGWorkflow._price_amount(
+            match.group(1),
+            match.group(2),
+        )
+
+    @staticmethod
+    def _extract_price_min(query: str) -> int | None:
+        normalized_query = normalize_text(query)
+        amount_pattern = (
+            r"(\d+(?:\s+\d{3})*)\s*"
+            r"(k|nghin|ngan|dong|d)?"
+        )
+        range_match = re.search(
+            rf"(?:tu\s+)?{amount_pattern}\s+den\s+{amount_pattern}",
+            normalized_query,
+        )
+        if range_match:
+            return AgenticRAGWorkflow._price_amount(
+                range_match.group(1),
+                range_match.group(2),
+            )
+
+        match = re.search(
+            rf"(?:tren|toi thieu|it nhat|tu)\s+{amount_pattern}",
+            normalized_query,
+        )
+        if not match:
+            match = re.search(
+                rf"{amount_pattern}\s+(?:do len|tro len)",
+                normalized_query,
+            )
+        if not match:
+            return None
+
+        return AgenticRAGWorkflow._price_amount(
+            match.group(1),
+            match.group(2),
+        )
+
+    @staticmethod
+    def _price_amount(raw_number: str, unit: str | None) -> int | None:
         amount = int(raw_number.replace(" ", ""))
-        unit = match.group(2)
         if unit in {"k", "nghin", "ngan"}:
             amount *= 1000
         elif " " not in raw_number and amount <= 1000:
             amount *= 1000
         return amount if amount > 0 else None
+
+    @classmethod
+    def _extract_price_filters(
+        cls,
+        query: str,
+        history: list[dict[str, str]],
+    ) -> tuple[int | None, int | None]:
+        price_min = cls._extract_price_min(query)
+        price_max = cls._extract_price_max(query)
+        if price_min is not None or price_max is not None:
+            return price_min, price_max
+
+        previous_query = cls._previous_user_query(history)
+        if not previous_query or not cls._is_follow_up(query):
+            return None, None
+        return (
+            cls._extract_price_min(previous_query),
+            cls._extract_price_max(previous_query),
+        )
+
+    @staticmethod
+    def _previous_user_query(
+        history: list[dict[str, str]],
+    ) -> str | None:
+        for message in reversed(history):
+            if message.get("role") == "user":
+                content = message.get("content", "").strip()
+                if content:
+                    return content
+        return None
+
+    @staticmethod
+    def _is_follow_up(query: str) -> bool:
+        normalized_query = f" {normalize_text(query)} "
+        follow_up_phrases = (
+            " vay ",
+            " the ",
+            " quan do ",
+            " cho do ",
+            " mon do ",
+            " van gia ",
+            " van nhu ",
+            " nhu cu ",
+            " con ",
+            " no ",
+        )
+        return any(
+            phrase in normalized_query
+            for phrase in follow_up_phrases
+        )
 
     @staticmethod
     def _extract_open_at(query: str) -> str | None:

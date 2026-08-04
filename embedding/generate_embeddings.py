@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 import os
 from collections import Counter
@@ -17,12 +18,13 @@ MODEL_NAME = os.getenv(
 DEFAULT_INPUTS = (
     PROJECT_ROOT / "data" / "processed" / "food_chunks.json",
 )
-DEFAULT_OUTPUT = PROJECT_ROOT / "data" / "final" / "hanoi_food_v1.json"
+DEFAULT_OUTPUT = PROJECT_ROOT / "data" / "final" / "hanoi_food_v2.json"
 
 REQUIRED_FIELDS = (
     "chunk_id",
     "parent_id",
     "domain",
+    "knowledge_version",
     "title",
     "title_normalized",
     "address",
@@ -46,6 +48,12 @@ REQUIRED_FIELDS = (
     "tags_normalized",
     "description",
     "vector_text",
+    "source_name",
+    "source_url",
+    "retrieved_at",
+    "last_verified_at",
+    "license",
+    "verification_status",
 )
 
 
@@ -65,9 +73,20 @@ def write_json(path, data):
         json.dump(data, file, ensure_ascii=False, indent=2)
 
 
+def json_sha256(data):
+    serialized = json.dumps(
+        data,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
 def load_and_validate_chunks(input_paths):
     chunks = []
     chunk_ids = set()
+    knowledge_versions = set()
 
     for input_path in input_paths:
         for row_index, chunk in enumerate(read_json(input_path)):
@@ -89,10 +108,15 @@ def load_and_validate_chunks(input_paths):
                 raise ValueError(f"{chunk_id} has empty vector_text")
 
             chunk_ids.add(chunk_id)
+            knowledge_versions.add(str(chunk["knowledge_version"]).strip())
             chunks.append(chunk)
 
     if not chunks:
         raise ValueError("At least one food chunk is required")
+    if "" in knowledge_versions or len(knowledge_versions) != 1:
+        raise ValueError(
+            "All chunks must use one non-empty knowledge_version"
+        )
 
     return chunks
 
@@ -186,9 +210,23 @@ def main():
     )
     output_path = args.output.resolve()
     write_json(output_path, embedded_chunks)
+    manifest_path = output_path.with_suffix(".manifest.json")
+    write_json(
+        manifest_path,
+        {
+            "schema_version": 1,
+            "knowledge_version": chunks[0]["knowledge_version"],
+            "domain": "food",
+            "embedding_model": args.model,
+            "vector_dimension": vector_size,
+            "point_count": len(embedded_chunks),
+            "parent_count": parent_count,
+            "vector_artifact_sha256": json_sha256(embedded_chunks),
+        },
+    )
     print(
         f"Saved {len(embedded_chunks)} vectors ({vector_size} dimensions) "
-        f"to {output_path}."
+        f"to {output_path}. Manifest: {manifest_path}."
     )
 
 

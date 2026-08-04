@@ -1,10 +1,15 @@
 import asyncio
+import datetime
 import json
 import os
 from pathlib import Path
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
+
+import jwt
+from uuid import uuid4
 
 
 TEST_DIRECTORY = tempfile.TemporaryDirectory(prefix="rag-chat-p0-")
@@ -12,8 +17,9 @@ TEST_DATABASE_PATH = Path(TEST_DIRECTORY.name, "p0.sqlite3").resolve()
 
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DATABASE_PATH.as_posix()}"
 os.environ["APP_ENV"] = "test"
+os.environ["LANGSMITH_TRACING"] = "false"
 os.environ["JWT_SECRET_KEY"] = "p0-test-secret-that-is-not-used-in-production"
-os.environ["GITHUB_TOKEN"] = "p0-test-github-token"
+os.environ["LLM_API_KEY"] = "p0-test-llm-api-key"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "60"
 os.environ["CORS_ORIGINS"] = (
     "http://localhost:3000,http://127.0.0.1:3000"
@@ -31,10 +37,21 @@ from sqlalchemy import event
 from core.config import settings
 from core.security import create_access_token
 from database.connection import Base, SessionLocal, engine
-from database.models import ChatSessionModel, MessageModel, UserModel
+from database.models import (
+    ChatSessionModel,
+    MessageModel,
+    RateLimitBucketModel,
+    UserModel,
+)
 from main import app
 from routers import chat as chat_router
 from schemas.chat import ChatRequest
+from services.chat_service import (
+    PENDING_MESSAGE_TIMEOUT_MINUTES,
+    STALE_PENDING_MESSAGE,
+    reserve_chat_turn,
+)
+from services.rate_limit_service import cleanup_expired_rate_limits_task
 
 
 TRUSTED_ORIGIN = settings.CORS_ORIGINS[0]
@@ -169,6 +186,7 @@ class P0FlowTests(unittest.TestCase):
         try:
             database.query(MessageModel).delete()
             database.query(ChatSessionModel).delete()
+            database.query(RateLimitBucketModel).delete()
             database.query(UserModel).delete()
             database.commit()
         finally:
@@ -202,10 +220,79 @@ class P0FlowTests(unittest.TestCase):
         me_response = client.get("/api/auth/me")
         self.assertEqual(me_response.status_code, 200)
         self.assertEqual(me_response.json()["username"], "auth-user")
+        self.assertEqual(
+            me_response.headers["Cache-Control"],
+            "private, no-cache, no-store",
+        )
+
+        cookie_value = client.cookies.get(settings.AUTH_COOKIE_NAME)
+        access_token = cookie_value.removeprefix("Bearer ")
+        claims = jwt.decode(
+            access_token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
+            audience=settings.JWT_AUDIENCE,
+            issuer=settings.JWT_ISSUER,
+        )
+        self.assertEqual(claims["username"], "auth-user")
+        self.assertIn("jti", claims)
+        self.assertIn("ver", claims)
 
         logout_response = client.post("/api/auth/logout")
         self.assertEqual(logout_response.status_code, 200)
         self.assertEqual(client.get("/api/auth/me").status_code, 401)
+        history_after_logout = client.get("/api/history")
+        self.assertEqual(history_after_logout.status_code, 401)
+        self.assertEqual(
+            history_after_logout.headers["Cache-Control"],
+            "private, no-cache, no-store",
+        )
+
+        stolen_token_client = TestClient(
+            app,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        self.assertEqual(
+            stolen_token_client.get("/api/auth/me").status_code,
+            401,
+        )
+
+    def test_auth_rate_limit_and_trusted_host(self):
+        rejected_host = TestClient(
+            app,
+            base_url="http://untrusted.example",
+        )
+        self.assertEqual(rejected_host.get("/").status_code, 400)
+
+        client = TestClient(
+            app,
+            headers={"Origin": TRUSTED_ORIGIN},
+        )
+        with patch.object(settings, "LOGIN_RATE_LIMIT_REQUESTS", 2):
+            for _ in range(2):
+                response = client.post(
+                    "/api/auth/login",
+                    json={
+                        "username": "missing-user",
+                        "password": "password123",
+                    },
+                )
+                self.assertEqual(response.status_code, 401)
+
+            limited = client.post(
+                "/api/auth/login",
+                json={
+                    "username": "missing-user",
+                    "password": "password123",
+                },
+            )
+
+        self.assertEqual(limited.status_code, 429)
+        self.assertIn("Retry-After", limited.headers)
+        self.assertEqual(
+            limited.headers["Cache-Control"],
+            "private, no-cache, no-store",
+        )
 
     def test_csrf_rejects_untrusted_auth_requests(self):
         evil_origin = "https://evil.example"
@@ -296,7 +383,16 @@ class P0FlowTests(unittest.TestCase):
             settings.AUTH_COOKIE_NAME
         )
         self.assertIsNotNone(cookie_value)
-        access_token = create_access_token({"sub": "bearer-user"})
+        database = SessionLocal()
+        try:
+            bearer_user = (
+                database.query(UserModel)
+                .filter(UserModel.username == "bearer-user")
+                .one()
+            )
+            access_token = create_access_token(bearer_user)
+        finally:
+            database.close()
 
         bearer_client = TestClient(
             app,
@@ -651,6 +747,10 @@ class P0FlowTests(unittest.TestCase):
                 json={"question": "Câu đầu tiên"},
             )
             self.assertEqual(first.status_code, 200)
+            self.assertEqual(
+                first.headers["Cache-Control"],
+                "private, no-cache, no-store",
+            )
 
             second = client.post(
                 "/api/chat",
@@ -660,6 +760,342 @@ class P0FlowTests(unittest.TestCase):
             self.assertIn("Retry-After", second.headers)
         finally:
             settings.CHAT_RATE_LIMIT_REQUESTS = original_limit
+
+    def test_burst_limit_counts_replays_and_invalid_sessions(self):
+        client = self.register_and_login("burst-scope-user")
+        request_payload = {
+            "question": "Phở bò",
+            "client_request_id": str(uuid4()),
+        }
+
+        with patch.object(settings, "CHAT_RATE_LIMIT_REQUESTS", 1):
+            first = client.post("/api/chat/stream", json=request_payload)
+            replay = client.post("/api/chat/stream", json=request_payload)
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(replay.status_code, 429)
+
+        database = SessionLocal()
+        try:
+            database.query(RateLimitBucketModel).delete()
+            database.commit()
+        finally:
+            database.close()
+
+        with patch.object(settings, "CHAT_RATE_LIMIT_REQUESTS", 1):
+            missing_session = client.post(
+                "/api/chat/stream",
+                json={"session_id": 999999, "question": "Không tồn tại"},
+            )
+            limited = client.post(
+                "/api/chat/stream",
+                json={"session_id": 999999, "question": "Vẫn không tồn tại"},
+            )
+
+        self.assertEqual(missing_session.status_code, 404)
+        self.assertEqual(limited.status_code, 429)
+
+    def test_expired_rate_limit_buckets_are_cleaned(self):
+        database = SessionLocal()
+        try:
+            now = datetime.datetime.now(datetime.timezone.utc)
+            database.add_all(
+                [
+                    RateLimitBucketModel(
+                        scope="test.expired",
+                        identifier_hash="a" * 64,
+                        request_count=1,
+                        expires_at=now - datetime.timedelta(seconds=1),
+                    ),
+                    RateLimitBucketModel(
+                        scope="test.active",
+                        identifier_hash="b" * 64,
+                        request_count=1,
+                        expires_at=now + datetime.timedelta(hours=1),
+                    ),
+                ]
+            )
+            database.commit()
+        finally:
+            database.close()
+
+        self.assertEqual(cleanup_expired_rate_limits_task(), 1)
+
+        database = SessionLocal()
+        try:
+            remaining_scopes = {
+                bucket.scope
+                for bucket in database.query(RateLimitBucketModel).all()
+            }
+        finally:
+            database.close()
+        self.assertEqual(remaining_scopes, {"test.active"})
+
+    def test_llm_budget_does_not_charge_idempotent_retry_twice(self):
+        client = self.register_and_login("budget-user")
+        client_request_id = str(uuid4())
+        payload = {
+            "question": "Phở bò dưới 50 nghìn",
+            "client_request_id": client_request_id,
+        }
+
+        with patch.object(settings, "LLM_DAILY_USER_REQUESTS", 1):
+            first = client.post("/api/chat/stream", json=payload)
+            retry = client.post("/api/chat/stream", json=payload)
+            limited = client.post(
+                "/api/chat/stream",
+                json={
+                    "question": "Một câu hỏi mới",
+                    "client_request_id": str(uuid4()),
+                },
+            )
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(retry.status_code, 200)
+        self.assertEqual(limited.status_code, 429)
+        self.assertIn("Retry-After", limited.headers)
+        self.assertEqual(len(self.fake_rag.calls), 1)
+
+    def test_stream_idempotency_reuses_completed_turn(self):
+        client = self.register_and_login("idempotent-user")
+        client_request_id = str(uuid4())
+        request_payload = {
+            "question": "Phở bò ở Cầu Giấy",
+            "client_request_id": client_request_id,
+        }
+
+        first_response = client.post(
+            "/api/chat/stream",
+            json=request_payload,
+        )
+        second_response = client.post(
+            "/api/chat/stream",
+            json=request_payload,
+        )
+
+        first_events = parse_sse(first_response.text)
+        second_events = parse_sse(second_response.text)
+        self.assertEqual(first_events[-1][0], "done")
+        self.assertEqual(
+            [event[0] for event in second_events],
+            ["session", "done"],
+        )
+        self.assertEqual(
+            first_events[0][1]["user_message"]["id"],
+            second_events[0][1]["user_message"]["id"],
+        )
+        self.assertEqual(len(self.fake_rag.calls), 1)
+
+        database = SessionLocal()
+        try:
+            self.assertEqual(database.query(MessageModel).count(), 2)
+        finally:
+            database.close()
+
+    def test_idempotency_key_rejects_a_different_payload(self):
+        client = self.register_and_login("idempotency-conflict-user")
+        client_request_id = str(uuid4())
+
+        first_response = client.post(
+            "/api/chat/stream",
+            json={
+                "question": "Phở bò ở Cầu Giấy",
+                "client_request_id": client_request_id,
+            },
+        )
+        conflict_response = client.post(
+            "/api/chat/stream",
+            json={
+                "question": "Bún chả ở Hoàn Kiếm",
+                "client_request_id": client_request_id,
+            },
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(conflict_response.status_code, 409)
+        self.assertEqual(len(self.fake_rag.calls), 1)
+
+    def test_sync_idempotent_retry_preserves_error_status(self):
+        client = self.register_and_login("sync-error-retry-user")
+        self.fake_rag.answer = ""
+        request_payload = {
+            "question": "Câu trả lời lỗi",
+            "client_request_id": str(uuid4()),
+        }
+
+        first_response = client.post("/api/chat", json=request_payload)
+        retry_response = client.post("/api/chat", json=request_payload)
+
+        self.assertEqual(first_response.status_code, 502)
+        self.assertEqual(retry_response.status_code, 502)
+        self.assertEqual(len(self.fake_rag.calls), 1)
+
+    def test_history_cursor_pagination_returns_latest_messages(self):
+        client = self.register_and_login("history-page-user")
+        session_ids = []
+        for question_number in range(3):
+            response = client.post(
+                "/api/chat/stream",
+                json={"question": f"Phiên số {question_number}"},
+            )
+            session_ids.append(
+                parse_sse(response.text)[0][1]["session_id"]
+            )
+
+        first_page = client.get("/api/history?limit=2").json()
+        self.assertEqual(
+            [session["id"] for session in first_page],
+            list(reversed(session_ids[-2:])),
+        )
+        second_page = client.get(
+            f"/api/history?limit=2&cursor={first_page[-1]['id']}"
+        ).json()
+        self.assertEqual(
+            [session["id"] for session in second_page],
+            [session_ids[0]],
+        )
+
+        session_id = session_ids[-1]
+        for question_number in range(2):
+            response = client.post(
+                "/api/chat/stream",
+                json={
+                    "session_id": session_id,
+                    "question": f"Hỏi tiếp {question_number}",
+                },
+            )
+            self.assertEqual(parse_sse(response.text)[-1][0], "done")
+
+        latest_messages = client.get(
+            f"/api/history/{session_id}?limit=2"
+        ).json()
+        self.assertEqual(
+            [message["position"] for message in latest_messages],
+            [4, 5],
+        )
+        older_messages = client.get(
+            f"/api/history/{session_id}?limit=2&cursor=4"
+        ).json()
+        self.assertEqual(
+            [message["position"] for message in older_messages],
+            [2, 3],
+        )
+
+    def test_retry_marks_stale_pending_turn_as_error(self):
+        client = self.register_and_login("stale-request-user")
+        client_request_id = str(uuid4())
+
+        database = SessionLocal()
+        try:
+            user = (
+                database.query(UserModel)
+                .filter(UserModel.username == "stale-request-user")
+                .one()
+            )
+            reservation = reserve_chat_turn(
+                database,
+                user_id=user.id,
+                session_id=None,
+                client_request_id=client_request_id,
+                question="Yêu cầu bị gián đoạn",
+                district=None,
+            )
+            reservation.assistant_message.created_at = (
+                datetime.datetime.utcnow()
+                - datetime.timedelta(
+                    minutes=PENDING_MESSAGE_TIMEOUT_MINUTES + 1
+                )
+            )
+            database.commit()
+        finally:
+            database.close()
+
+        response = client.post(
+            "/api/chat/stream",
+            json={
+                "question": "Yêu cầu bị gián đoạn",
+                "client_request_id": client_request_id,
+            },
+        )
+        events = parse_sse(response.text)
+        self.assertEqual(
+            [event[0] for event in events],
+            ["session", "error"],
+        )
+        self.assertEqual(len(self.fake_rag.calls), 0)
+        self.assertEqual(
+            events[-1][1]["assistant_message"]["content"],
+            STALE_PENDING_MESSAGE,
+        )
+
+    def test_new_turn_cleans_old_pending_and_rejects_active_pending(self):
+        client = self.register_and_login("pending-cleanup-user")
+
+        database = SessionLocal()
+        try:
+            user = (
+                database.query(UserModel)
+                .filter(UserModel.username == "pending-cleanup-user")
+                .one()
+            )
+            user_id = user.id
+            stale_turn = reserve_chat_turn(
+                database,
+                user_id=user_id,
+                session_id=None,
+                client_request_id=str(uuid4()),
+                question="Lượt cũ bị treo",
+                district=None,
+            )
+            session_id = stale_turn.session.id
+            stale_message_id = stale_turn.assistant_message.id
+            stale_turn.assistant_message.created_at = (
+                datetime.datetime.utcnow()
+                - datetime.timedelta(
+                    minutes=PENDING_MESSAGE_TIMEOUT_MINUTES + 1
+                )
+            )
+            database.commit()
+        finally:
+            database.close()
+
+        recovered = client.post(
+            "/api/chat/stream",
+            json={
+                "session_id": session_id,
+                "client_request_id": str(uuid4()),
+                "question": "Lượt mới sau khi cleanup",
+            },
+        )
+        self.assertEqual(parse_sse(recovered.text)[-1][0], "done")
+
+        database = SessionLocal()
+        try:
+            stale_message = database.get(MessageModel, stale_message_id)
+            self.assertEqual(stale_message.status, "error")
+            self.assertEqual(stale_message.content, STALE_PENDING_MESSAGE)
+
+            active_turn = reserve_chat_turn(
+                database,
+                user_id=user_id,
+                session_id=None,
+                client_request_id=str(uuid4()),
+                question="Lượt đang xử lý",
+                district=None,
+            )
+            active_session_id = active_turn.session.id
+        finally:
+            database.close()
+
+        busy = client.post(
+            "/api/chat/stream",
+            json={
+                "session_id": active_session_id,
+                "client_request_id": str(uuid4()),
+                "question": "Không được chen vào",
+            },
+        )
+        self.assertEqual(busy.status_code, 409)
 
 
 if __name__ == "__main__":

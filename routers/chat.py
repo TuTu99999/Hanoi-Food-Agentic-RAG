@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from core.config import settings
+from core.metrics import chat_stream_finished
 from core.observability import bind_session_id
 from core.security import get_current_user
 from database.connection import get_db
@@ -15,12 +16,12 @@ from database.models import UserModel
 from embedding.text_utils import normalize_text
 from schemas.chat import ChatRequest, ChatResponse
 from services.chat_service import (
+    ChatBudgetExceededError,
+    ChatIdempotencyConflictError,
     ChatRateLimitExceededError,
+    ChatSessionBusyError,
     ChatSessionNotFoundError,
-    get_recent_conversation,
-    message_to_payload,
-    reserve_chat_turn,
-    update_assistant_message,
+    prepare_chat_turn_task,
     update_assistant_message_task,
 )
 
@@ -107,32 +108,36 @@ def get_rag_pipeline(request: Request):
     return rag_pipeline
 
 
-def _reserve_turn_or_404(
-    db: Session,
-    *,
-    current_user: UserModel,
-    payload: ChatRequest,
-    district: str | None,
-):
-    try:
-        return reserve_chat_turn(
-            db,
-            user_id=current_user.id,
-            session_id=payload.session_id,
-            question=payload.question,
-            district=district,
-        )
-    except ChatSessionNotFoundError as exc:
+def _raise_reservation_error(exc: Exception) -> None:
+    if isinstance(exc, ChatSessionNotFoundError):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Không tìm thấy phiên hội thoại phù hợp.",
         ) from exc
-    except ChatRateLimitExceededError as exc:
+    if isinstance(exc, ChatRateLimitExceededError):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Bạn gửi câu hỏi quá nhanh. Vui lòng thử lại sau.",
             headers={"Retry-After": str(exc.retry_after_seconds)},
         ) from exc
+    if isinstance(exc, ChatBudgetExceededError):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Bạn đã đạt giới hạn sử dụng AI. Vui lòng thử lại sau.",
+            headers={"Retry-After": str(exc.retry_after_seconds)},
+        ) from exc
+    if isinstance(exc, ChatSessionBusyError):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Phiên hội thoại đang xử lý một câu hỏi khác.",
+            headers={"Retry-After": "2"},
+        ) from exc
+    if isinstance(exc, ChatIdempotencyConflictError):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Mã yêu cầu đã được sử dụng.",
+        ) from exc
+    raise exc
 
 
 def _run_rag(
@@ -168,33 +173,60 @@ def chat_with_rag(
         payload.question,
         payload.district,
     )
-    session, user_message, assistant_message = _reserve_turn_or_404(
-        db,
-        current_user=current_user,
-        payload=payload,
-        district=effective_district,
-    )
-    session_id = session.id
+    user_id = current_user.id
+    db.close()
+
+    try:
+        prepared_turn = prepare_chat_turn_task(
+            user_id=user_id,
+            session_id=payload.session_id,
+            client_request_id=payload.client_request_id,
+            question=payload.question,
+            district=effective_district,
+        )
+    except (
+        ChatBudgetExceededError,
+        ChatIdempotencyConflictError,
+        ChatRateLimitExceededError,
+        ChatSessionBusyError,
+        ChatSessionNotFoundError,
+    ) as exc:
+        _raise_reservation_error(exc)
+
+    session_id = prepared_turn.session_id
     bind_session_id(session_id)
-    assistant_message_id = assistant_message.id
-    turn_id = assistant_message.turn_id
-    history = get_recent_conversation(
-        db,
-        user_id=current_user.id,
-        session_id=session_id,
-        before_position=user_message.position,
-    )
+    user_payload = prepared_turn.user_message
+    assistant_payload = prepared_turn.assistant_message
+    assistant_message_id = assistant_payload["id"]
+    turn_id = assistant_payload["turn_id"]
+
+    if not prepared_turn.created:
+        if assistant_payload["status"] == "pending":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Yêu cầu này đang được xử lý.",
+                headers={"Retry-After": "2"},
+            )
+        if assistant_payload["status"] == "error":
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=RAG_ERROR_MESSAGE,
+            )
+        return {
+            "session_id": session_id,
+            "user_message": user_payload,
+            "assistant_message": assistant_payload,
+        }
 
     try:
         answer = _run_rag(
             rag_pipeline,
             payload.question,
             effective_district,
-            history,
+            prepared_turn.history,
         )
-        assistant_message = update_assistant_message(
-            db,
-            user_id=current_user.id,
+        assistant_payload = update_assistant_message_task(
+            user_id=user_id,
             session_id=session_id,
             assistant_message_id=assistant_message_id,
             turn_id=turn_id,
@@ -204,9 +236,8 @@ def chat_with_rag(
     except Exception as exc:
         logger.exception("RAG xử lý thất bại cho session %s", session_id)
         try:
-            update_assistant_message(
-                db,
-                user_id=current_user.id,
+            update_assistant_message_task(
+                user_id=user_id,
                 session_id=session_id,
                 assistant_message_id=assistant_message_id,
                 turn_id=turn_id,
@@ -229,8 +260,8 @@ def chat_with_rag(
     )
     return {
         "session_id": session_id,
-        "user_message": message_to_payload(user_message),
-        "assistant_message": message_to_payload(assistant_message),
+        "user_message": user_payload,
+        "assistant_message": assistant_payload,
     }
 
 
@@ -245,26 +276,44 @@ async def chat_stream(
         payload.question,
         payload.district,
     )
-    session, user_message, assistant_message = _reserve_turn_or_404(
-        db,
-        current_user=current_user,
-        payload=payload,
-        district=effective_district,
-    )
-
-    session_id = session.id
-    bind_session_id(session_id)
     user_id = current_user.id
-    assistant_message_id = assistant_message.id
-    turn_id = assistant_message.turn_id
-    user_payload = message_to_payload(user_message)
-    pending_assistant_payload = message_to_payload(assistant_message)
-    history = get_recent_conversation(
-        db,
-        user_id=user_id,
-        session_id=session_id,
-        before_position=user_message.position,
-    )
+    db.close()
+
+    try:
+        prepared_turn = await asyncio.to_thread(
+            prepare_chat_turn_task,
+            user_id=user_id,
+            session_id=payload.session_id,
+            client_request_id=payload.client_request_id,
+            question=payload.question,
+            district=effective_district,
+        )
+    except (
+        ChatBudgetExceededError,
+        ChatIdempotencyConflictError,
+        ChatRateLimitExceededError,
+        ChatSessionBusyError,
+        ChatSessionNotFoundError,
+    ) as exc:
+        _raise_reservation_error(exc)
+
+    session_id = prepared_turn.session_id
+    bind_session_id(session_id)
+    user_payload = prepared_turn.user_message
+    pending_assistant_payload = prepared_turn.assistant_message
+    assistant_message_id = pending_assistant_payload["id"]
+    turn_id = pending_assistant_payload["turn_id"]
+    history = prepared_turn.history
+
+    if (
+        not prepared_turn.created
+        and pending_assistant_payload["status"] == "pending"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Yêu cầu này đang được xử lý.",
+            headers={"Retry-After": "2"},
+        )
 
     async def persist_assistant(content: str, message_status: str) -> dict:
         return await asyncio.to_thread(
@@ -280,9 +329,17 @@ async def chat_stream(
 
     async def event_generator():
         assistant_finalized = False
+        stream_outcome_recorded = False
         assistant_payload = pending_assistant_payload
         answer_parts = []
         rag_stream = None
+
+        def record_stream_outcome(outcome: str) -> None:
+            nonlocal stream_outcome_recorded
+            if stream_outcome_recorded:
+                return
+            chat_stream_finished(outcome)
+            stream_outcome_recorded = True
 
         async def finalize_error(message: str) -> None:
             nonlocal assistant_finalized, assistant_payload
@@ -311,6 +368,30 @@ async def chat_stream(
                     "assistant_message": pending_assistant_payload,
                 },
             )
+
+            if not prepared_turn.created:
+                assistant_finalized = True
+                if pending_assistant_payload["status"] == "completed":
+                    record_stream_outcome("replayed")
+                    yield _sse_event(
+                        "done",
+                        {
+                            "session_id": session_id,
+                            "assistant_message": pending_assistant_payload,
+                        },
+                    )
+                else:
+                    record_stream_outcome("replayed_error")
+                    yield _sse_event(
+                        "error",
+                        {
+                            "session_id": session_id,
+                            "code": RAG_ERROR_CODE,
+                            "message": RAG_ERROR_MESSAGE,
+                            "assistant_message": pending_assistant_payload,
+                        },
+                    )
+                return
 
             loop = asyncio.get_running_loop()
             deadline = loop.time() + settings.LLM_TIMEOUT_SECONDS
@@ -355,6 +436,7 @@ async def chat_stream(
 
             assistant_payload = await persist_assistant(answer, "completed")
             assistant_finalized = True
+            record_stream_outcome("completed")
             logger.info(
                 "RAG stream completed.",
                 extra={"session_id": str(session_id)},
@@ -368,6 +450,7 @@ async def chat_stream(
                 },
             )
         except asyncio.CancelledError:
+            record_stream_outcome("cancelled")
             if not assistant_finalized:
                 try:
                     await asyncio.shield(
@@ -380,6 +463,7 @@ async def chat_stream(
                     )
             raise
         except asyncio.TimeoutError:
+            record_stream_outcome("timeout")
             logger.warning(
                 "LLM quá thời gian chờ cho session %s.",
                 session_id,
@@ -395,6 +479,7 @@ async def chat_stream(
                 },
             )
         except Exception:
+            record_stream_outcome("error")
             logger.exception("RAG stream thất bại cho session %s", session_id)
             await finalize_error(RAG_ERROR_MESSAGE)
 
@@ -426,12 +511,14 @@ async def chat_stream(
                         "Không thể finalize RAG stream cho session %s",
                         session_id,
                     )
+            if not stream_outcome_recorded:
+                record_stream_outcome("cancelled")
 
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "private, no-cache, no-store",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
         },

@@ -118,7 +118,8 @@ export const Chat = () => {
     const userText = input.trim();
     setInput('');
 
-    const requestMarker = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const clientRequestId = crypto.randomUUID();
+    const requestMarker = clientRequestId;
     const userClientId = `user-${requestMarker}`;
     const botClientId = `assistant-${requestMarker}`;
     const userMsg = { clientId: userClientId, role: 'user', content: userText };
@@ -146,6 +147,7 @@ export const Chat = () => {
         signal: controller.signal,
         body: JSON.stringify({ 
           session_id: sessionId,
+          client_request_id: clientRequestId,
           question: userText,
           district: district === DEFAULT_DISTRICT ? null : district,
         }),

@@ -14,6 +14,13 @@ from core.resilience import (
     call_with_retry_async,
 )
 from embedding.text_utils import normalize_text
+from langsmith import traceable
+from rag.tracing import (
+    reduce_stream,
+    trace_inputs,
+    trace_outputs,
+    wrap_openai_if_enabled,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -35,7 +42,9 @@ SYSTEM_INSTRUCTION = (
     "5. Có thể nhận biết lỗi chính tả nhỏ khi tên trong ngữ cảnh khớp rõ ràng; "
     "không tự tạo địa điểm mới.\n"
     "6. Dữ liệu giờ mở cửa có nhãn 'daily_assumed' chỉ là lịch hằng ngày từ "
-    "nguồn hiện có; không tự khẳng định lịch ngày lễ hoặc ngày đặc biệt."
+    "nguồn hiện có; không tự khẳng định lịch ngày lễ hoặc ngày đặc biệt.\n"
+    "7. Nếu verification_status là 'unverified', hãy coi giá và giờ mở cửa là "
+    "dữ liệu tham khảo, không khẳng định rằng thông tin vừa được kiểm chứng."
 )
 
 
@@ -64,14 +73,13 @@ class RAGPipeline:
     def __init__(self):
         """
         Khởi tạo RAG Pipeline dùng OpenAI-compatible API:
-        1. Kiểm tra GITHUB_TOKEN trong .env.
+        1. Kiểm tra API key của LLM provider trong .env.
         2. Khởi tạo client từ LLM_BASE_URL và LLM_MODEL.
         3. Khởi tạo lazy loading cho RetrievalEngine.
         """
-        github_token = settings.GITHUB_TOKEN
-        if not github_token:
+        if not settings.LLM_API_KEY:
             raise RAGConfigurationError(
-                "Không tìm thấy GITHUB_TOKEN trong file .env hoặc hệ thống."
+                "Không tìm thấy LLM_API_KEY hoặc GEMINI_API_KEY."
             )
 
         self.retriever = None
@@ -81,12 +89,18 @@ class RAGPipeline:
 
         client_options = {
             "base_url": settings.LLM_BASE_URL,
-            "api_key": github_token,
+            "api_key": settings.LLM_API_KEY,
             "timeout": settings.LLM_TIMEOUT_SECONDS,
             "max_retries": 0,
         }
-        self.ai_client = OpenAI(**client_options)
-        self.async_ai_client = AsyncOpenAI(**client_options)
+        self.ai_client = wrap_openai_if_enabled(
+            OpenAI(**client_options),
+            settings.LANGSMITH_TRACING,
+        )
+        self.async_ai_client = wrap_openai_if_enabled(
+            AsyncOpenAI(**client_options),
+            settings.LANGSMITH_TRACING,
+        )
         self.llm_model = settings.LLM_MODEL
         self.llm_circuit_breaker = CircuitBreaker(
             failure_threshold=settings.CIRCUIT_BREAKER_FAILURES,
@@ -214,8 +228,27 @@ class RAGPipeline:
         user_question: str,
         history: list[dict[str, str]],
     ) -> str:
-        """Add the previous question when the current question is a short follow-up."""
-        if len(normalize_text(user_question).split()) > 12:
+        """Add context only when the current question refers to a previous turn."""
+        normalized_question = f" {normalize_text(user_question)} "
+        follow_up_phrases = (
+            " vay ",
+            " the ",
+            " quan do ",
+            " cho do ",
+            " mon do ",
+            " van gia ",
+            " van nhu ",
+            " nhu cu ",
+            " con ",
+            " no ",
+        )
+        if (
+            len(normalized_question.split()) > 12
+            or not any(
+                phrase in normalized_question
+                for phrase in follow_up_phrases
+            )
+        ):
             return user_question
 
         previous_question = next(
@@ -319,6 +352,15 @@ class RAGPipeline:
                         "opening_schedule_scope",
                     ),
                     "tags": doc.get("tags", []),
+                    "knowledge_version": doc.get("knowledge_version"),
+                    "source_name": doc.get("source_name"),
+                    "source_url": doc.get("source_url"),
+                    "retrieved_at": doc.get("retrieved_at"),
+                    "last_verified_at": doc.get("last_verified_at"),
+                    "verification_status": doc.get(
+                        "verification_status",
+                        "unknown",
+                    ),
                     # Keep the evidence prompt bounded even if a catalog
                     # entity has many chunks.
                     "description": str(doc.get("content", ""))[:1200],
@@ -344,6 +386,15 @@ class RAGPipeline:
         messages.append({"role": "user", "content": user_content})
         return None, messages, structured_context
 
+    @traceable(
+        name="food_rag_chat",
+        run_type="chain",
+        tags=["food", "agentic-rag"],
+        project_name=settings.LANGSMITH_PROJECT,
+        process_inputs=trace_inputs,
+        process_outputs=trace_outputs,
+        enabled=settings.LANGSMITH_TRACING,
+    )
     def run_with_metrics(
         self,
         user_question: str,
@@ -376,7 +427,8 @@ class RAGPipeline:
                 model=self.llm_model,
                 messages=messages,
                 temperature=0.3,
-                max_tokens=800,
+                max_tokens=settings.LLM_MAX_OUTPUT_TOKENS,
+                reasoning_effort=settings.LLM_REASONING_EFFORT,
             ),
             attempts=settings.EXTERNAL_RETRY_ATTEMPTS,
             base_seconds=settings.EXTERNAL_RETRY_BASE_SECONDS,
@@ -384,7 +436,11 @@ class RAGPipeline:
             circuit_breaker=self.llm_circuit_breaker,
         )
 
-        answer = response.choices[0].message.content
+        choice = response.choices[0]
+        if getattr(choice, "finish_reason", None) == "length":
+            raise RuntimeError("LLM trả về câu trả lời bị cắt ngắn.")
+
+        answer = choice.message.content
         if not isinstance(answer, str) or not answer.strip():
             raise RuntimeError("LLM trả về nội dung rỗng.")
 
@@ -420,6 +476,15 @@ class RAGPipeline:
         )
         return result["answer"]
 
+    @traceable(
+        name="food_rag_stream",
+        run_type="chain",
+        tags=["food", "agentic-rag", "stream"],
+        project_name=settings.LANGSMITH_PROJECT,
+        process_inputs=trace_inputs,
+        reduce_fn=reduce_stream,
+        enabled=settings.LANGSMITH_TRACING,
+    )
     async def stream(
         self,
         user_question: str,
@@ -444,7 +509,8 @@ class RAGPipeline:
                 model=self.llm_model,
                 messages=messages,
                 temperature=0.3,
-                max_tokens=800,
+                max_tokens=settings.LLM_MAX_OUTPUT_TOKENS,
+                reasoning_effort=settings.LLM_REASONING_EFFORT,
                 stream=True,
             ),
             attempts=settings.EXTERNAL_RETRY_ATTEMPTS,
@@ -454,12 +520,17 @@ class RAGPipeline:
         )
 
         received_content = False
+        finish_reason = None
         try:
             async for chunk in response_stream:
                 if not chunk.choices:
                     continue
 
-                delta = chunk.choices[0].delta.content
+                choice = chunk.choices[0]
+                if getattr(choice, "finish_reason", None):
+                    finish_reason = choice.finish_reason
+
+                delta = choice.delta.content
                 if delta:
                     if not isinstance(delta, str):
                         raise RuntimeError(
@@ -471,8 +542,16 @@ class RAGPipeline:
             self.llm_circuit_breaker.record_failure()
             raise
         finally:
-            await response_stream.close()
+            try:
+                await response_stream.close()
+            except Exception as exc:
+                logger.warning(
+                    "Không thể đóng LLM stream sạch sẽ.",
+                    extra={"error_type": type(exc).__name__},
+                )
 
+        if finish_reason == "length":
+            raise RuntimeError("LLM stream trả về câu trả lời bị cắt ngắn.")
         if not received_content:
             raise RuntimeError("LLM stream trả về nội dung rỗng.")
 

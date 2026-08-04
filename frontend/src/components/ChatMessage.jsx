@@ -2,6 +2,50 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Bot, User } from 'lucide-react';
+import {
+  isExternalMarkdownLink,
+  sanitizeMarkdownImage,
+  sanitizeMarkdownLink,
+} from '../lib/markdown';
+
+const MarkdownLink = ({ href, children }) => {
+  const safeHref = sanitizeMarkdownLink(href);
+  if (!safeHref) {
+    return <span>{children}</span>;
+  }
+
+  const external = isExternalMarkdownLink(safeHref);
+  return (
+    <a
+      href={safeHref}
+      rel={external ? 'noopener noreferrer nofollow' : undefined}
+      target={external ? '_blank' : undefined}
+    >
+      {children}
+    </a>
+  );
+};
+
+const MarkdownImage = ({ src, alt }) => {
+  const safeSrc = sanitizeMarkdownImage(src);
+  if (!safeSrc) {
+    return alt ? <span>{alt}</span> : null;
+  }
+
+  return (
+    <img
+      src={safeSrc}
+      alt={alt || ''}
+      loading="lazy"
+      referrerPolicy="no-referrer"
+    />
+  );
+};
+
+const markdownComponents = {
+  a: MarkdownLink,
+  img: MarkdownImage,
+};
 
 export const ChatMessage = ({ message }) => {
   const isUser = message.role === 'user';
@@ -24,7 +68,10 @@ export const ChatMessage = ({ message }) => {
           <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
         ) : (
           <div className="prose dark:prose-invert max-w-none text-sm leading-relaxed">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <ReactMarkdown
+              components={markdownComponents}
+              remarkPlugins={[remarkGfm]}
+            >
               {message.content}
             </ReactMarkdown>
           </div>

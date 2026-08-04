@@ -23,6 +23,7 @@ class LexicalIndex:
     """Small in-memory exact-name and BM25 index for the food catalog."""
 
     def __init__(self, rows: list[dict[str, Any]]):
+        self.knowledge_version = self._read_knowledge_version(rows)
         self.documents = self._group_entities(rows)
         if not self.documents:
             raise ValueError("Food catalog does not contain any valid document.")
@@ -52,6 +53,7 @@ class LexicalIndex:
         self,
         district: str | None = None,
         category: str | None = None,
+        price_min: int | None = None,
         price_max: int | None = None,
         open_at: str | None = None,
     ) -> int:
@@ -59,11 +61,12 @@ class LexicalIndex:
             1
             for document in self.documents
             if self._matches_filters(
-                document,
-                district,
-                category,
-                price_max,
-                open_at,
+                document=document,
+                district=district,
+                category=category,
+                price_min=price_min,
+                price_max=price_max,
+                open_at=open_at,
             )
         )
 
@@ -72,6 +75,7 @@ class LexicalIndex:
         query: str,
         district: str | None = None,
         category: str | None = None,
+        price_min: int | None = None,
         price_max: int | None = None,
         open_at: str | None = None,
         limit: int = 10,
@@ -79,11 +83,12 @@ class LexicalIndex:
         matches = []
         for document in self.documents:
             if not self._matches_filters(
-                document,
-                district,
-                category,
-                price_max,
-                open_at,
+                document=document,
+                district=district,
+                category=category,
+                price_min=price_min,
+                price_max=price_max,
+                open_at=open_at,
             ):
                 continue
 
@@ -111,6 +116,7 @@ class LexicalIndex:
         query: str,
         district: str | None = None,
         category: str | None = None,
+        price_min: int | None = None,
         price_max: int | None = None,
         open_at: str | None = None,
         limit: int = 20,
@@ -127,11 +133,12 @@ class LexicalIndex:
         results = []
         for index, document in enumerate(self.documents):
             if not self._matches_filters(
-                document,
-                district,
-                category,
-                price_max,
-                open_at,
+                document=document,
+                district=district,
+                category=category,
+                price_min=price_min,
+                price_max=price_max,
+                open_at=open_at,
             ):
                 continue
 
@@ -165,6 +172,25 @@ class LexicalIndex:
             reverse=True,
         )
         return results[:limit]
+
+    @staticmethod
+    def _read_knowledge_version(
+        rows: list[dict[str, Any]],
+    ) -> str | None:
+        versions = {
+            str(row.get("knowledge_version") or "").strip()
+            for row in rows
+        }
+        versions.discard("")
+        has_unversioned_rows = any(
+            not str(row.get("knowledge_version") or "").strip()
+            for row in rows
+        )
+        if len(versions) > 1 or (versions and has_unversioned_rows):
+            raise ValueError(
+                "Food catalog contains mixed knowledge versions."
+            )
+        return next(iter(versions), None)
 
     @staticmethod
     def _group_entities(
@@ -205,6 +231,7 @@ class LexicalIndex:
                     "ranking_score": 0.0,
                     "parent_id": parent_id,
                     "domain": "food",
+                    "knowledge_version": row.get("knowledge_version"),
                     "title": title,
                     "title_normalized": (
                         row.get("title_normalized") or normalize_text(title)
@@ -262,6 +289,15 @@ class LexicalIndex:
                     "tags_normalized": (
                         row.get("tags_normalized")
                         or [normalize_text(tag) for tag in tags]
+                    ),
+                    "source_name": row.get("source_name"),
+                    "source_url": row.get("source_url"),
+                    "retrieved_at": row.get("retrieved_at"),
+                    "last_verified_at": row.get("last_verified_at"),
+                    "license": row.get("license"),
+                    "verification_status": row.get(
+                        "verification_status",
+                        "unknown",
                     ),
                     "_chunks": [],
                 }
@@ -382,6 +418,7 @@ class LexicalIndex:
         document: dict[str, Any],
         district: str | None,
         category: str | None,
+        price_min: int | None,
         price_max: int | None,
         open_at: str | None,
     ) -> bool:
@@ -408,11 +445,21 @@ class LexicalIndex:
             ):
                 return False
 
-        if price_max is not None:
+        # A restaurant matches when its available price range overlaps the
+        # range requested by the user.
+        if price_min is not None:
             document_price_max = document.get("price_max")
             if (
                 not isinstance(document_price_max, int)
-                or document_price_max > price_max
+                or document_price_max < price_min
+            ):
+                return False
+
+        if price_max is not None:
+            document_price_min = document.get("price_min")
+            if (
+                not isinstance(document_price_min, int)
+                or document_price_min > price_max
             ):
                 return False
 

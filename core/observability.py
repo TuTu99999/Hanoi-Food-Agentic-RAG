@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from starlette.datastructures import MutableHeaders
 from starlette.responses import JSONResponse
 
+from core.metrics import request_finished, request_started
+
 
 REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 request_id_context = contextvars.ContextVar(
@@ -68,6 +70,7 @@ class JsonFormatter(logging.Formatter):
             "branch_counts",
             "exact_shortcut_used",
             "service",
+            "deleted_count",
         ):
             if hasattr(record, field_name):
                 payload[field_name] = getattr(record, field_name)
@@ -122,6 +125,10 @@ class RequestContextMiddleware:
             return
 
         request_id = _read_request_id(scope)
+        method = scope.get("method", "UNKNOWN")
+        collect_metrics = scope.get("path") != "/metrics"
+        if collect_metrics:
+            request_started(method)
         request_token = request_id_context.set(request_id)
         session_token = session_id_context.set("-")
         started_at = time.perf_counter()
@@ -160,11 +167,18 @@ class RequestContextMiddleware:
                 2,
             )
             route = scope.get("route")
-            route_path = getattr(route, "path", scope.get("path", ""))
+            route_path = getattr(route, "path", "unmatched")
+            if collect_metrics:
+                request_finished(
+                    method=method,
+                    route=route_path,
+                    status_code=status_code,
+                    duration_seconds=duration_ms / 1000,
+                )
             self.logger.info(
                 "http.request.completed",
                 extra={
-                    "method": scope.get("method"),
+                    "method": method,
                     "path": scope.get("path"),
                     "route": route_path,
                     "status_code": status_code,

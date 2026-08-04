@@ -5,26 +5,15 @@ import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
-from qdrant_client import QdrantClient
-from qdrant_client.models import (
-    CreateAlias,
-    CreateAliasOperation,
-    DeleteAlias,
-    DeleteAliasOperation,
-    Distance,
-    PayloadSchemaType,
-    PointStruct,
-    VectorParams,
-)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(PROJECT_ROOT / ".env")
 
-DEFAULT_VECTOR_FILE = PROJECT_ROOT / "data" / "final" / "hanoi_food_v1.json"
-DEFAULT_COLLECTION = "hanoi_food_v1"
+DEFAULT_VECTOR_FILE = PROJECT_ROOT / "data" / "final" / "hanoi_food_v2.json"
+DEFAULT_COLLECTION = "hanoi_food_v2"
 DEFAULT_ALIAS = "hanoi_food_current"
-DEFAULT_EXPECTED_POINTS = 624
+DEFAULT_EXPECTED_POINTS = 773
 DEFAULT_EXPECTED_PARENTS = 418
 POINT_ID_NAMESPACE = uuid.UUID("83eed46d-713b-4d5d-a8e8-caf7b61a98c8")
 
@@ -32,6 +21,7 @@ REQUIRED_PAYLOAD_FIELDS = (
     "chunk_id",
     "parent_id",
     "domain",
+    "knowledge_version",
     "title",
     "title_normalized",
     "address",
@@ -55,18 +45,26 @@ REQUIRED_PAYLOAD_FIELDS = (
     "tags_normalized",
     "description",
     "vector_text",
+    "source_name",
+    "source_url",
+    "retrieved_at",
+    "last_verified_at",
+    "license",
+    "verification_status",
 )
 
 PAYLOAD_INDEXES = (
-    ("domain", PayloadSchemaType.KEYWORD),
-    ("parent_id", PayloadSchemaType.KEYWORD),
-    ("title_normalized", PayloadSchemaType.KEYWORD),
-    ("district_normalized", PayloadSchemaType.KEYWORD),
-    ("category_normalized", PayloadSchemaType.KEYWORD),
-    ("sub_category_normalized", PayloadSchemaType.KEYWORD),
-    ("tags_normalized", PayloadSchemaType.KEYWORD),
-    ("price_min", PayloadSchemaType.INTEGER),
-    ("price_max", PayloadSchemaType.INTEGER),
+    ("domain", "keyword"),
+    ("knowledge_version", "keyword"),
+    ("parent_id", "keyword"),
+    ("title_normalized", "keyword"),
+    ("district_normalized", "keyword"),
+    ("category_normalized", "keyword"),
+    ("sub_category_normalized", "keyword"),
+    ("tags_normalized", "keyword"),
+    ("price_min", "integer"),
+    ("price_max", "integer"),
+    ("verification_status", "keyword"),
 )
 
 
@@ -92,6 +90,7 @@ def validate_vector_rows(
 ):
     chunk_ids = set()
     point_ids = set()
+    knowledge_versions = set()
     vector_size = None
 
     for row_index, row in enumerate(rows):
@@ -124,6 +123,12 @@ def validate_vector_rows(
 
         if row["domain"] != "food":
             raise ValueError(f"{chunk_id} must use the food domain")
+        knowledge_versions.add(str(row["knowledge_version"]).strip())
+
+    if "" in knowledge_versions or len(knowledge_versions) != 1:
+        raise ValueError(
+            "All vectors must use one non-empty knowledge_version"
+        )
 
     if (
         expected_point_count is not None
@@ -151,6 +156,8 @@ def build_payload(row):
 
 
 def build_points(rows):
+    from qdrant_client.models import PointStruct
+
     for row in rows:
         yield PointStruct(
             id=point_id_from_chunk_id(row["chunk_id"]),
@@ -160,11 +167,17 @@ def build_points(rows):
 
 
 def create_payload_indexes(client, collection_name):
-    for field_name, field_schema in PAYLOAD_INDEXES:
+    from qdrant_client.models import PayloadSchemaType
+
+    schema_types = {
+        "keyword": PayloadSchemaType.KEYWORD,
+        "integer": PayloadSchemaType.INTEGER,
+    }
+    for field_name, schema_name in PAYLOAD_INDEXES:
         client.create_payload_index(
             collection_name=collection_name,
             field_name=field_name,
-            field_schema=field_schema,
+            field_schema=schema_types[schema_name],
             wait=True,
         )
 
@@ -186,7 +199,7 @@ def validate_uploaded_collection(client, collection_name, rows):
     records = client.retrieve(
         collection_name=collection_name,
         ids=sample_ids,
-        with_payload=["chunk_id"],
+        with_payload=["chunk_id", "knowledge_version"],
         with_vectors=False,
     )
     returned_chunk_ids = {
@@ -198,8 +211,25 @@ def validate_uploaded_collection(client, collection_name, rows):
     if returned_chunk_ids != expected_chunk_ids:
         raise RuntimeError("Upload validation failed: sample payloads do not match")
 
+    returned_versions = {
+        record.payload.get("knowledge_version")
+        for record in records
+        if record.payload
+    }
+    if returned_versions != {rows[0]["knowledge_version"]}:
+        raise RuntimeError(
+            "Upload validation failed: knowledge versions do not match"
+        )
+
 
 def switch_alias(client, collection_name, alias_name):
+    from qdrant_client.models import (
+        CreateAlias,
+        CreateAliasOperation,
+        DeleteAlias,
+        DeleteAliasOperation,
+    )
+
     aliases = client.get_aliases().aliases
     current = next(
         (alias for alias in aliases if alias.alias_name == alias_name),
@@ -249,6 +279,8 @@ def upload_vector_data(
     expected_point_count=None,
     expected_parent_count=None,
 ):
+    from qdrant_client.models import Distance, VectorParams
+
     vector_size = validate_vector_rows(
         rows,
         expected_point_count=expected_point_count,
@@ -351,6 +383,8 @@ def main():
     if args.dry_run:
         print("Dry-run completed. Qdrant was not contacted.")
         return
+
+    from qdrant_client import QdrantClient
 
     client = QdrantClient(
         url=args.qdrant_url,

@@ -15,6 +15,7 @@ htmlcov
 venv
 .venv
 frontend
+deploy
 tests
 evals
 eval_*.py
@@ -22,6 +23,7 @@ evaluate_*.py
 README.md
 data/raw
 data/final
+data/imports
 data/evaluation
 data/processed/travel_*
 data/processed/faq_*

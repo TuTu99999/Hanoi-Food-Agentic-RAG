@@ -8,14 +8,17 @@ import unittest
 from unittest.mock import patch
 
 os.environ["APP_ENV"] = "test"
+os.environ["LANGSMITH_TRACING"] = "false"
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["JWT_SECRET_KEY"] = "p1-test-secret"
-os.environ["GITHUB_TOKEN"] = "p1-test-github-token"
+os.environ["LLM_API_KEY"] = "p1-test-llm-api-key"
+os.environ["LLM_REASONING_EFFORT"] = "minimal"
+os.environ["LLM_MAX_OUTPUT_TOKENS"] = "800"
 os.environ["CORS_ORIGINS"] = "http://localhost:3000"
 os.environ["AUTH_COOKIE_SECURE"] = "false"
 os.environ["AUTH_COOKIE_SAMESITE"] = "lax"
 
-from embedding.process_data import build_chunks, count_tokens
+from embedding.process_data import build_chunks, count_tokens, json_sha256
 from embedding.retrieval_engine import RetrievalEngine, normalize_text
 from embedding.upload_to_qdrant import (
     point_id_from_chunk_id,
@@ -102,28 +105,42 @@ class FakeRagRetriever:
 
 
 class FakeAsyncCompletionStream:
-    def __init__(self, deltas):
-        self.deltas = iter(deltas)
+    def __init__(self, deltas, finish_reason=None):
+        self.deltas = list(deltas)
+        self.index = 0
+        self.finish_reason = finish_reason
         self.closed = False
 
     def __aiter__(self):
         return self
 
     async def __anext__(self):
-        try:
-            content = next(self.deltas)
-        except StopIteration as exc:
-            raise StopAsyncIteration from exc
+        if self.index >= len(self.deltas):
+            raise StopAsyncIteration
+
+        content = self.deltas[self.index]
+        self.index += 1
         return SimpleNamespace(
             choices=[
                 SimpleNamespace(
-                    delta=SimpleNamespace(content=content)
+                    delta=SimpleNamespace(content=content),
+                    finish_reason=(
+                        self.finish_reason
+                        if self.index == len(self.deltas)
+                        else None
+                    ),
                 )
             ]
         )
 
     async def close(self):
         self.closed = True
+
+
+class CloseFailingCompletionStream(FakeAsyncCompletionStream):
+    async def close(self):
+        self.closed = True
+        raise RuntimeError("cleanup failed")
 
 
 class FakeAsyncCompletions:
@@ -165,7 +182,7 @@ class P1RagQualityTests(unittest.TestCase):
             items=[item],
             domain="food",
             tokenizer=tokenizer,
-            max_tokens=35,
+            max_tokens=60,
             overlap_tokens=4,
         )
 
@@ -175,9 +192,17 @@ class P1RagQualityTests(unittest.TestCase):
         self.assertEqual(chunks[0]["district_normalized"], "hoan kiem")
         self.assertEqual(chunks[0]["category_normalized"], "am thuc")
         self.assertEqual(chunks[0]["tags"], ["Kiểm thử", "Món Việt"])
+        self.assertTrue(chunks[0]["knowledge_version"].startswith("food-"))
+        self.assertEqual(
+            chunks[0]["verification_status"],
+            "unverified",
+        )
+        self.assertIsNone(chunks[0]["source_url"])
+        self.assertIn("Món Việt", chunks[0]["vector_text"])
+        self.assertIn("30.000đ - 50.000đ", chunks[0]["vector_text"])
         self.assertTrue(
             all(
-                count_tokens(tokenizer, chunk["vector_text"]) <= 35
+                count_tokens(tokenizer, chunk["vector_text"]) <= 60
                 for chunk in chunks
             )
         )
@@ -205,6 +230,14 @@ class P1RagQualityTests(unittest.TestCase):
                 raw_items = json.load(file)
             with chunk_path.open("r", encoding="utf-8") as file:
                 chunks = json.load(file)
+            manifest_path = (
+                PROJECT_ROOT
+                / "data"
+                / "processed"
+                / f"{domain}_manifest.json"
+            )
+            with manifest_path.open("r", encoding="utf-8") as file:
+                manifest = json.load(file)
 
             raw_parent_ids = {
                 item["id"]
@@ -218,7 +251,28 @@ class P1RagQualityTests(unittest.TestCase):
             self.assertEqual(chunk_parent_ids, raw_parent_ids)
             if domain == "food":
                 self.assertEqual(len(chunk_parent_ids), 418)
-                self.assertEqual(len(chunks), 624)
+                self.assertEqual(len(chunks), 773)
+                self.assertEqual(
+                    len(
+                        {
+                            chunk["knowledge_version"]
+                            for chunk in chunks
+                        }
+                    ),
+                    1,
+                )
+                self.assertEqual(
+                    manifest["knowledge_version"],
+                    chunks[0]["knowledge_version"],
+                )
+                self.assertEqual(
+                    manifest["dataset_sha256"],
+                    json_sha256(raw_items),
+                )
+                self.assertEqual(
+                    manifest["lexical_artifact_sha256"],
+                    json_sha256(chunks),
+                )
 
             for chunk in chunks:
                 self.assertNotIn(chunk["chunk_id"], all_chunk_ids)
@@ -232,6 +286,9 @@ class P1RagQualityTests(unittest.TestCase):
                     self.assertIn("price_min", chunk)
                     self.assertIn("price_max", chunk)
                     self.assertIn("opening_intervals", chunk)
+                    self.assertIn("source_url", chunk)
+                    self.assertIn("last_verified_at", chunk)
+                    self.assertIn("verification_status", chunk)
 
     def test_retrieval_filters_reranks_and_groups_entities(self):
         results = [
@@ -337,6 +394,7 @@ class P1RagQualityTests(unittest.TestCase):
                     "chunk_id": "food_001_chunk_001",
                     "parent_id": "food_001",
                     "domain": "food",
+                    "knowledge_version": "food-test-v1",
                     "title": "Phở Thìn",
                     "title_normalized": "pho thin",
                     "address": "Hà Nội",
@@ -360,12 +418,19 @@ class P1RagQualityTests(unittest.TestCase):
                     "tags_normalized": [],
                     "description": "Mô tả",
                     "vector_text": "Phở Thìn tại Hà Nội",
+                    "source_name": None,
+                    "source_url": None,
+                    "retrieved_at": None,
+                    "last_verified_at": None,
+                    "license": None,
+                    "verification_status": "unverified",
                     "vector": [0.1, 0.2, 0.3],
                 },
                 {
                     "chunk_id": "food_001_chunk_002",
                     "parent_id": "food_001",
                     "domain": "food",
+                    "knowledge_version": "food-test-v1",
                     "title": "Phở Thìn",
                     "title_normalized": "pho thin",
                     "address": "Hà Nội",
@@ -395,6 +460,12 @@ class P1RagQualityTests(unittest.TestCase):
                     "tags_normalized": [],
                     "description": "Mô tả",
                     "vector_text": "Phở Thìn tại Hà Nội",
+                    "source_name": None,
+                    "source_url": None,
+                    "retrieved_at": None,
+                    "last_verified_at": None,
+                    "license": None,
+                    "verification_status": "unverified",
                     "vector": [0.4, 0.5, 0.6],
                 },
             ]
@@ -446,6 +517,11 @@ class P1RagQualityTests(unittest.TestCase):
         self.assertTrue(response_stream.closed)
         self.assertTrue(completions.last_call["stream"])
         self.assertEqual(
+            completions.last_call["reasoning_effort"],
+            "minimal",
+        )
+        self.assertEqual(completions.last_call["max_tokens"], 800)
+        self.assertEqual(
             completions.last_call["messages"][1:3],
             history,
         )
@@ -453,6 +529,86 @@ class P1RagQualityTests(unittest.TestCase):
             history[0]["content"],
             retriever.last_call["query"],
         )
+
+    def test_stream_cleanup_error_does_not_mask_answer(self):
+        from rag.Rag import RAGPipeline
+
+        response_stream = CloseFailingCompletionStream(["Kết quả hợp lệ"])
+        pipeline = RAGPipeline.__new__(RAGPipeline)
+        pipeline.retriever = FakeRagRetriever()
+        pipeline.async_ai_client = SimpleNamespace(
+            chat=SimpleNamespace(
+                completions=FakeAsyncCompletions(response_stream)
+            )
+        )
+        pipeline.llm_model = "test-model"
+        pipeline.llm_circuit_breaker = CircuitBreaker(3, 30)
+
+        async def collect_deltas():
+            return [
+                delta
+                async for delta in pipeline.stream(
+                    user_question="Tìm quán ăn",
+                    collection_name="hanoi_food_current",
+                    district="Cầu Giấy",
+                    history=[],
+                )
+            ]
+
+        self.assertEqual(
+            asyncio.run(collect_deltas()),
+            ["Kết quả hợp lệ"],
+        )
+        self.assertTrue(response_stream.closed)
+
+    def test_stream_rejects_truncated_llm_answer(self):
+        from rag.Rag import RAGPipeline
+
+        response_stream = FakeAsyncCompletionStream(
+            ["Câu trả lời đang dở"],
+            finish_reason="length",
+        )
+        pipeline = RAGPipeline.__new__(RAGPipeline)
+        pipeline.retriever = FakeRagRetriever()
+        pipeline.async_ai_client = SimpleNamespace(
+            chat=SimpleNamespace(
+                completions=FakeAsyncCompletions(response_stream)
+            )
+        )
+        pipeline.llm_model = "test-model"
+        pipeline.llm_circuit_breaker = CircuitBreaker(3, 30)
+
+        async def collect_deltas():
+            return [
+                delta
+                async for delta in pipeline.stream(
+                    user_question="Tìm quán ăn",
+                    collection_name="hanoi_food_current",
+                    district="Cầu Giấy",
+                    history=[],
+                )
+            ]
+
+        with self.assertRaisesRegex(RuntimeError, "cắt ngắn"):
+            asyncio.run(collect_deltas())
+        self.assertTrue(response_stream.closed)
+
+    def test_short_topic_switch_does_not_contaminate_search_query(self):
+        from rag.Rag import RAGPipeline
+
+        history = [
+            {
+                "role": "user",
+                "content": "Tìm quán phở ở Hoàn Kiếm",
+            }
+        ]
+
+        search_query = RAGPipeline._build_search_query(
+            "Tư vấn laptop gaming",
+            history,
+        )
+
+        self.assertEqual(search_query, "Tư vấn laptop gaming")
 
     def test_retrieval_engine_uses_configured_model_and_qdrant_url(self):
         with (
@@ -508,7 +664,7 @@ class P1RagQualityTests(unittest.TestCase):
         from rag.Rag import RAGPipeline
 
         with (
-            patch.object(settings, "GITHUB_TOKEN", "test-token"),
+            patch.object(settings, "LLM_API_KEY", "test-token"),
             patch.object(settings, "LLM_BASE_URL", "https://llm.example/v1"),
             patch.object(settings, "LLM_MODEL", "test-llm"),
             patch.object(settings, "LLM_TIMEOUT_SECONDS", 17),

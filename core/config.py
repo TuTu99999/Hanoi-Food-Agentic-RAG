@@ -13,8 +13,8 @@ DEVELOPMENT_CORS_ORIGINS = (
 _TRUE_VALUES = {"1", "true", "yes", "on"}
 _FALSE_VALUES = {"0", "false", "no", "off"}
 _cors_origins_env = os.getenv("CORS_ORIGINS")
-
-
+_trusted_hosts_env = os.getenv("TRUSTED_HOSTS")
+_app_env = os.getenv("APP_ENV", "development").strip().lower()
 class ConfigurationError(RuntimeError):
     pass
 
@@ -32,6 +32,21 @@ def _get_bool_env(name: str, default: bool) -> bool:
     raise ConfigurationError(
         f"[Lỗi Cấu Hình] {name} phải là true hoặc false."
     )
+
+
+_langsmith_api_key = os.getenv("LANGSMITH_API_KEY", "").strip()
+_langsmith_tracing_requested = _get_bool_env(
+    "LANGSMITH_TRACING",
+    False,
+)
+_langsmith_tracing_enabled = (
+    _langsmith_tracing_requested
+    and bool(_langsmith_api_key)
+    and _app_env != "test"
+)
+if _langsmith_tracing_requested and not _langsmith_tracing_enabled:
+    # Tests and a missing key must never send traces outside the application.
+    os.environ["LANGSMITH_TRACING"] = "false"
 
 
 def _get_int_env(name: str, default: int) -> int:
@@ -99,6 +114,32 @@ def _get_cors_origins() -> tuple[str, ...]:
     return tuple(dict.fromkeys(origins))
 
 
+def _get_trusted_hosts() -> tuple[str, ...]:
+    values = (
+        _trusted_hosts_env.split(",")
+        if _trusted_hosts_env is not None
+        else (
+            "localhost",
+            "127.0.0.1",
+            "host.docker.internal",
+            "testserver",
+        )
+    )
+    hosts = [value.strip().lower() for value in values if value.strip()]
+    return tuple(dict.fromkeys(hosts))
+
+
+def _is_trusted_hostname(hostname: str, trusted_hosts: tuple[str, ...]) -> bool:
+    return any(
+        pattern == hostname
+        or (
+            pattern.startswith("*.")
+            and hostname.endswith(pattern[1:])
+        )
+        for pattern in trusted_hosts
+    )
+
+
 def _validate_http_url(name: str, value: str) -> None:
     try:
         parsed = urlsplit(value)
@@ -135,12 +176,19 @@ _qdrant_host, _qdrant_port, _qdrant_url = _get_qdrant_connection()
 
 
 class Settings:
-    APP_ENV: str = os.getenv("APP_ENV", "development").strip().lower()
+    APP_ENV: str = _app_env
     CORS_ORIGINS: tuple[str, ...] = _get_cors_origins()
+    TRUSTED_HOSTS: tuple[str, ...] = _get_trusted_hosts()
+    TRUST_PROXY_HEADERS: bool = _get_bool_env(
+        "TRUST_PROXY_HEADERS",
+        False,
+    )
 
     DATABASE_URL: str = os.getenv("DATABASE_URL", "").strip()
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "")
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256").strip().upper()
+    JWT_ISSUER: str = os.getenv("JWT_ISSUER", "hanoi-food-api").strip()
+    JWT_AUDIENCE: str = os.getenv("JWT_AUDIENCE", "hanoi-food-web").strip()
     ACCESS_TOKEN_EXPIRE_MINUTES: int = _get_int_env(
         "ACCESS_TOKEN_EXPIRE_MINUTES",
         60,
@@ -167,12 +215,37 @@ class Settings:
         os.getenv("AUTH_COOKIE_DOMAIN", "").strip() or None
     )
 
-    GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN", "").strip()
+    LLM_API_KEY: str = (
+        os.getenv("LLM_API_KEY", "").strip()
+        or os.getenv("GEMINI_API_KEY", "").strip()
+    )
+    LANGSMITH_API_KEY: str = _langsmith_api_key
+    LANGSMITH_TRACING: bool = _langsmith_tracing_enabled
+    LANGSMITH_PROJECT: str = os.getenv(
+        "LANGSMITH_PROJECT",
+        "hanoi-food-agentic-rag",
+    ).strip()
+    LANGSMITH_ENDPOINT: str = os.getenv(
+        "LANGSMITH_ENDPOINT",
+        "https://api.smith.langchain.com",
+    ).strip().rstrip("/")
+    LANGSMITH_WORKSPACE_ID: str = os.getenv(
+        "LANGSMITH_WORKSPACE_ID",
+        "",
+    ).strip()
     LLM_BASE_URL: str = os.getenv(
         "LLM_BASE_URL",
-        "https://models.inference.ai.azure.com",
+        "https://generativelanguage.googleapis.com/v1beta/openai",
     ).strip().rstrip("/")
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4o-mini").strip()
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "gemini-3.6-flash").strip()
+    LLM_REASONING_EFFORT: str = os.getenv(
+        "LLM_REASONING_EFFORT",
+        "minimal",
+    ).strip().lower()
+    LLM_MAX_OUTPUT_TOKENS: int = _get_int_env(
+        "LLM_MAX_OUTPUT_TOKENS",
+        800,
+    )
     LLM_TIMEOUT_SECONDS: int = _get_int_env("LLM_TIMEOUT_SECONDS", 30)
     EMBEDDING_MODEL: str = os.getenv(
         "EMBEDDING_MODEL",
@@ -241,6 +314,34 @@ class Settings:
         "CHAT_RATE_LIMIT_WINDOW_SECONDS",
         60,
     )
+    LLM_DAILY_USER_REQUESTS: int = _get_int_env(
+        "LLM_DAILY_USER_REQUESTS",
+        100,
+    )
+    LLM_DAILY_GLOBAL_REQUESTS: int = _get_int_env(
+        "LLM_DAILY_GLOBAL_REQUESTS",
+        1000,
+    )
+    LLM_BUDGET_WINDOW_SECONDS: int = _get_int_env(
+        "LLM_BUDGET_WINDOW_SECONDS",
+        86400,
+    )
+    LOGIN_RATE_LIMIT_REQUESTS: int = _get_int_env(
+        "LOGIN_RATE_LIMIT_REQUESTS",
+        10,
+    )
+    LOGIN_RATE_LIMIT_WINDOW_SECONDS: int = _get_int_env(
+        "LOGIN_RATE_LIMIT_WINDOW_SECONDS",
+        300,
+    )
+    REGISTER_RATE_LIMIT_REQUESTS: int = _get_int_env(
+        "REGISTER_RATE_LIMIT_REQUESTS",
+        5,
+    )
+    REGISTER_RATE_LIMIT_WINDOW_SECONDS: int = _get_int_env(
+        "REGISTER_RATE_LIMIT_WINDOW_SECONDS",
+        3600,
+    )
     DB_SCHEMA_CHECK: bool = _get_bool_env("DB_SCHEMA_CHECK", True)
 
 
@@ -261,6 +362,10 @@ def _validate_settings(config: Settings) -> None:
     if config.JWT_ALGORITHM not in {"HS256", "HS384", "HS512"}:
         raise ConfigurationError(
             "[Lỗi Cấu Hình] JWT_ALGORITHM không được hỗ trợ."
+        )
+    if not config.JWT_ISSUER or not config.JWT_AUDIENCE:
+        raise ConfigurationError(
+            "JWT_ISSUER and JWT_AUDIENCE must not be empty."
         )
     if config.ACCESS_TOKEN_EXPIRE_MINUTES <= 0:
         raise ConfigurationError(
@@ -297,9 +402,44 @@ def _validate_settings(config: Settings) -> None:
             "[Lỗi Cấu Hình] CORS_ORIGINS không được để trống."
         )
 
+    if not config.TRUSTED_HOSTS:
+        raise ConfigurationError("TRUSTED_HOSTS must not be empty.")
+    if any(
+        "://" in host
+        or "/" in host
+        or any(char.isspace() for char in host)
+        or (
+            "*" in host
+            and host != "*"
+            and (not host.startswith("*.") or host.count("*") != 1)
+        )
+        for host in config.TRUSTED_HOSTS
+    ):
+        raise ConfigurationError(
+            "TRUSTED_HOSTS may only contain hostnames or wildcard domains."
+        )
+
+    if not config.LLM_API_KEY:
+        raise ConfigurationError(
+            "Chưa khai báo LLM_API_KEY hoặc GEMINI_API_KEY."
+        )
     if not config.LLM_MODEL:
         raise ConfigurationError(
             "[Lỗi Cấu Hình] LLM_MODEL không được để trống."
+        )
+    if config.LLM_REASONING_EFFORT not in {
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+    }:
+        raise ConfigurationError(
+            "LLM_REASONING_EFFORT không hợp lệ."
+        )
+    if config.LLM_MAX_OUTPUT_TOKENS <= 0:
+        raise ConfigurationError(
+            "LLM_MAX_OUTPUT_TOKENS phải lớn hơn 0."
         )
     if not config.EMBEDDING_MODEL:
         raise ConfigurationError(
@@ -384,11 +524,47 @@ def _validate_settings(config: Settings) -> None:
         raise ConfigurationError(
             "[Lỗi Cấu Hình] CHAT_RATE_LIMIT_WINDOW_SECONDS phải lớn hơn 0."
         )
+    if not config.LANGSMITH_PROJECT:
+        raise ConfigurationError("LANGSMITH_PROJECT must not be empty.")
+    if not config.LANGSMITH_ENDPOINT:
+        raise ConfigurationError("LANGSMITH_ENDPOINT must not be empty.")
+
+    for name, value in (
+        ("LLM_DAILY_USER_REQUESTS", config.LLM_DAILY_USER_REQUESTS),
+        ("LLM_DAILY_GLOBAL_REQUESTS", config.LLM_DAILY_GLOBAL_REQUESTS),
+        ("LLM_BUDGET_WINDOW_SECONDS", config.LLM_BUDGET_WINDOW_SECONDS),
+        ("LOGIN_RATE_LIMIT_REQUESTS", config.LOGIN_RATE_LIMIT_REQUESTS),
+        (
+            "LOGIN_RATE_LIMIT_WINDOW_SECONDS",
+            config.LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+        ),
+        ("REGISTER_RATE_LIMIT_REQUESTS", config.REGISTER_RATE_LIMIT_REQUESTS),
+        (
+            "REGISTER_RATE_LIMIT_WINDOW_SECONDS",
+            config.REGISTER_RATE_LIMIT_WINDOW_SECONDS,
+        ),
+    ):
+        if value <= 0:
+            raise ConfigurationError(f"{name} must be greater than 0.")
 
     if config.APP_ENV == "production":
         if _cors_origins_env is None:
             raise ConfigurationError(
                 "[Lỗi Cấu Hình] Production phải khai báo CORS_ORIGINS."
+            )
+        if _trusted_hosts_env is None or "*" in config.TRUSTED_HOSTS:
+            raise ConfigurationError(
+                "Production requires explicit TRUSTED_HOSTS without '*'."
+            )
+        if any(
+            not _is_trusted_hostname(
+                urlsplit(origin).hostname or "",
+                config.TRUSTED_HOSTS,
+            )
+            for origin in config.CORS_ORIGINS
+        ):
+            raise ConfigurationError(
+                "Every production CORS origin host must be in TRUSTED_HOSTS."
             )
         if not config.AUTH_COOKIE_SECURE:
             raise ConfigurationError(
@@ -402,12 +578,9 @@ def _validate_settings(config: Settings) -> None:
             raise ConfigurationError(
                 "[Lỗi Cấu Hình] JWT_SECRET_KEY production vẫn là placeholder."
             )
-        if (
-            not config.GITHUB_TOKEN
-            or config.GITHUB_TOKEN.startswith("replace-with")
-        ):
+        if config.LLM_API_KEY.startswith("replace-with"):
             raise ConfigurationError(
-                "[Lỗi Cấu Hình] Production cần GITHUB_TOKEN hợp lệ."
+                "[Lỗi Cấu Hình] Production cần LLM_API_KEY hợp lệ."
             )
         if any(
             not origin.startswith("https://")

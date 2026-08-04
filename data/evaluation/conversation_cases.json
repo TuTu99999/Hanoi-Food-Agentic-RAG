@@ -28,5 +28,128 @@
         "district": "Hoàn Kiếm"
       }
     ]
+  },
+  {
+    "id": "conversation-price-retention-003",
+    "scenario": "Người dùng đặt quận và ngân sách rồi hỏi tiếp về giờ mở cửa.",
+    "expected_outcome": "Lượt sau phải giữ món, quận và mức giá dưới 200.000đ; chỉ trả quán còn mở lúc 20:00 từ retrieval context.",
+    "turns": [
+      {
+        "user_input": "Tìm pizza ở Tây Hồ dưới 200k.",
+        "district": "Tây Hồ"
+      },
+      {
+        "user_input": "Quán đó còn mở lúc 20h không?",
+        "district": "Tây Hồ"
+      }
+    ]
+  },
+  {
+    "id": "conversation-district-switch-004",
+    "scenario": "Người dùng giữ loại món nhưng chuyển sang quận khác.",
+    "expected_outcome": "Lượt hai phải tìm sushi tại Cầu Giấy, không giữ hard filter Tây Hồ từ lượt trước.",
+    "turns": [
+      {
+        "user_input": "Tìm sushi ở Tây Hồ.",
+        "district": "Tây Hồ"
+      },
+      {
+        "user_input": "Còn ở Cầu Giấy thì sao?",
+        "district": "Cầu Giấy"
+      }
+    ]
+  },
+  {
+    "id": "conversation-topic-switch-005",
+    "scenario": "Người dùng đổi từ ẩm thực sang một chủ đề ngoài phạm vi.",
+    "expected_outcome": "Lượt hai phải được nhận diện là ngoài phạm vi; không nối câu hỏi về laptop với truy vấn quán phở và không bịa dữ liệu.",
+    "turns": [
+      {
+        "user_input": "Tìm quán phở ở Hoàn Kiếm.",
+        "district": "Hoàn Kiếm"
+      },
+      {
+        "user_input": "Tư vấn laptop gaming cho tôi."
+      }
+    ]
+  },
+  {
+    "id": "conversation-long-reference-006",
+    "scenario": "Người dùng hỏi ba lượt liên tiếp về cùng một quán bằng đại từ.",
+    "expected_outcome": "Cả giờ mở cửa và giá ở lượt hai, ba phải tiếp tục tham chiếu đúng Trill Rooftop Cafe Cầu Giấy; không chuyển sang quán khác.",
+    "turns": [
+      {
+        "user_input": "Cho tôi thông tin Trill Rooftop Cafe ở Cầu Giấy.",
+        "district": "Cầu Giấy"
+      },
+      {
+        "user_input": "Quán đó mở tới mấy giờ?",
+        "district": "Cầu Giấy"
+      },
+      {
+        "user_input": "Giá bao nhiêu?",
+        "district": "Cầu Giấy"
+      }
+    ]
+  },
+  {
+    "id": "conversation-ambiguous-entity-007",
+    "scenario": "Hai record tại Tây Hồ có tên Maison de Tet Decor và người dùng bổ sung thuộc tính để làm rõ.",
+    "expected_outcome": "Hệ thống phải hỏi làm rõ khi tên còn mơ hồ; sau khi người dùng nhắc brunch thì ưu tiên record phù hợp, không trộn field của hai entity.",
+    "turns": [
+      {
+        "user_input": "Cho tôi thông tin Maison de Tet Decor.",
+        "district": "Tây Hồ"
+      },
+      {
+        "user_input": "Tôi muốn chỗ có brunch.",
+        "district": "Tây Hồ"
+      }
+    ]
+  },
+  {
+    "id": "conversation-relax-district-008",
+    "scenario": "Lượt đầu không có kết quả vì quận ngoài độ phủ, sau đó người dùng đổi sang quận có dữ liệu.",
+    "expected_outcome": "Lượt đầu phải no-answer. Lượt hai giữ nhu cầu sushi nhưng thay hard filter sang Tây Hồ và chỉ dùng dữ liệu retrieval mới.",
+    "turns": [
+      {
+        "user_input": "Tìm sushi ở Ba Vì.",
+        "district": "Ba Vì"
+      },
+      {
+        "user_input": "Vậy tìm ở Tây Hồ đi.",
+        "district": "Tây Hồ"
+      }
+    ]
+  },
+  {
+    "id": "conversation-clear-budget-009",
+    "scenario": "Người dùng chủ động bỏ giới hạn giá và thay đổi nhu cầu.",
+    "expected_outcome": "Lượt hai không được giữ ngân sách 50.000đ; phải tìm rooftop tại Cầu Giấy theo constraint mới.",
+    "turns": [
+      {
+        "user_input": "Tìm cafe ở Cầu Giấy dưới 50k.",
+        "district": "Cầu Giấy"
+      },
+      {
+        "user_input": "Bỏ giới hạn giá, tìm rooftop ở Cầu Giấy.",
+        "district": "Cầu Giấy"
+      }
+    ]
+  },
+  {
+    "id": "conversation-comparison-reference-010",
+    "scenario": "Người dùng hỏi một quán rồi yêu cầu so sánh với quán thứ hai.",
+    "expected_outcome": "Câu trả lời so sánh chỉ được dùng field của Gác Trịnh Cafe và Trill Rooftop Cafe Cầu Giấy, không lẫn entity khác.",
+    "turns": [
+      {
+        "user_input": "Cho tôi thông tin Gác Trịnh Cafe.",
+        "district": "Cầu Giấy"
+      },
+      {
+        "user_input": "So với Trill Rooftop Cafe Cầu Giấy thì thế nào?",
+        "district": "Cầu Giấy"
+      }
+    ]
   }
 ]

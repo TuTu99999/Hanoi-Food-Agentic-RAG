@@ -1,15 +1,17 @@
 import asyncio
 import json
 import os
+from pathlib import Path
 import unittest
 import uuid
 from unittest.mock import AsyncMock, Mock, patch
 
 
 os.environ["APP_ENV"] = "test"
+os.environ["LANGSMITH_TRACING"] = "false"
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["JWT_SECRET_KEY"] = "p2-test-secret"
-os.environ["GITHUB_TOKEN"] = "p2-test-github-token"
+os.environ["LLM_API_KEY"] = "p2-test-llm-api-key"
 os.environ["CORS_ORIGINS"] = "http://localhost:3000"
 os.environ["AUTH_COOKIE_SECURE"] = "false"
 os.environ["AUTH_COOKIE_SAMESITE"] = "lax"
@@ -55,6 +57,12 @@ class P2OperationsTests(unittest.TestCase):
         self.assertEqual(generated.status_code, 200)
         self.assertIn("X-Process-Time", generated.headers)
 
+        loopback_health = TestClient(
+            app,
+            base_url="http://127.0.0.1",
+        ).get("/health/live")
+        self.assertEqual(loopback_health.status_code, 200)
+
         supplied = client.get(
             "/health/live",
             headers={"X-Request-ID": "client-request_123"},
@@ -73,6 +81,79 @@ class P2OperationsTests(unittest.TestCase):
             "invalid request id",
         )
         uuid.UUID(invalid.headers["X-Request-ID"])
+
+    def test_metrics_endpoint_is_internal_monitoring_ready(self):
+        client = TestClient(app)
+        client.get("/metrics")
+        response = client.get("/metrics")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            "hanoi_food_http_requests_total",
+            response.text,
+        )
+        self.assertIn("hanoi_food_chat_streams_total", response.text)
+        self.assertNotIn('route="/metrics"', response.text)
+        self.assertEqual(response.headers["Cache-Control"], "no-store")
+
+    def test_monitoring_configs_and_dashboard_are_provisioned(self):
+        project_root = Path(__file__).resolve().parents[1]
+        prometheus_config = (
+            project_root
+            / "deploy"
+            / "prometheus"
+            / "prometheus.yml"
+        ).read_text(encoding="utf-8")
+        host_prometheus_config = (
+            project_root
+            / "deploy"
+            / "prometheus"
+            / "prometheus.host.yml"
+        ).read_text(encoding="utf-8")
+        datasource_config = (
+            project_root
+            / "deploy"
+            / "grafana"
+            / "provisioning"
+            / "datasources"
+            / "prometheus.yml"
+        ).read_text(encoding="utf-8")
+        dashboard_path = (
+            project_root
+            / "deploy"
+            / "grafana"
+            / "dashboards"
+            / "hanoi-food-overview.json"
+        )
+        dashboard = json.loads(dashboard_path.read_text(encoding="utf-8"))
+
+        self.assertIn("backend:8000", prometheus_config)
+        self.assertIn(
+            "host.docker.internal:8000",
+            host_prometheus_config,
+        )
+        self.assertIn("metrics_path: /metrics", prometheus_config)
+        self.assertIn("url: http://prometheus:9090", datasource_config)
+        self.assertEqual(dashboard["uid"], "hanoi-food-ops")
+        panel_titles = {
+            panel["title"]
+            for panel in dashboard["panels"]
+        }
+        self.assertIn("Backend", panel_titles)
+        self.assertIn("API Latency p95", panel_titles)
+        self.assertIn("Chat Stream Outcomes", panel_titles)
+
+        queries = " ".join(
+            target["expr"]
+            for panel in dashboard["panels"]
+            for target in panel.get("targets", [])
+        )
+        self.assertIn("hanoi_food_http_requests_total", queries)
+        self.assertIn("hanoi_food_chat_streams_total", queries)
+
+        dashboard_text = dashboard_path.read_text(encoding="utf-8")
+        self.assertNotIn("user_id", dashboard_text)
+        self.assertNotIn("session_id", dashboard_text)
 
     def test_health_ready_reports_each_dependency_without_leaking_errors(self):
         client = TestClient(app)
@@ -131,6 +212,7 @@ class P2OperationsTests(unittest.TestCase):
         async def exercise_lifespan():
             with (
                 patch("main.verify_database_revision") as verify_database,
+                patch("main.cleanup_expired_rate_limits_task") as cleanup_limits,
                 patch("main.RAGPipeline", return_value=fake_rag),
                 patch("main.engine.dispose") as dispose_engine,
             ):
@@ -141,6 +223,7 @@ class P2OperationsTests(unittest.TestCase):
                     )
 
                 verify_database.assert_called_once_with()
+                cleanup_limits.assert_called_once_with()
                 fake_rag.warmup.assert_called_once_with()
                 fake_rag.aclose.assert_awaited_once_with()
                 dispose_engine.assert_called_once_with()
@@ -274,24 +357,50 @@ class P2OperationsTests(unittest.TestCase):
 
     def test_retrieval_evaluation_reports_quality_and_latency(self):
         class FakeRetriever:
-            def search(self, **_kwargs):
+            def __init__(self):
+                self.last_call = None
+
+            def search(self, **kwargs):
+                self.last_call = kwargs
                 return [
                     {
                         "parent_id": "food_001",
                         "district": "Hoàn Kiếm",
+                        "price_min": 30000,
+                        "price_max": 60000,
+                        "opening_intervals": [
+                            {
+                                "opens": "06:00",
+                                "closes": "22:00",
+                                "closes_next_day": False,
+                            }
+                        ],
                     },
                     {
                         "parent_id": "food_002",
                         "district": "Hoàn Kiếm",
+                        "price_min": 40000,
+                        "price_max": 50000,
+                        "opening_intervals": [
+                            {
+                                "opens": "08:00",
+                                "closes": "23:00",
+                                "closes_next_day": False,
+                            }
+                        ],
                     },
                 ]
 
+        retriever = FakeRetriever()
         report = evaluate_threshold(
-            FakeRetriever(),
+            retriever,
             [
                 {
                     "query": "test",
                     "district": "hoan kiem",
+                    "price_max": 50000,
+                    "open_at": "12:00",
+                    "min_unique_parent_ids": 2,
                     "expected_parent_ids": ["food_001", "food_002"],
                 }
             ],
@@ -302,8 +411,33 @@ class P2OperationsTests(unittest.TestCase):
         self.assertEqual(report["accuracy"], 1.0)
         self.assertEqual(report["recall_at_2"], 1.0)
         self.assertEqual(report["district_filter_accuracy"], 1.0)
+        self.assertEqual(report["constraint_filter_accuracy"], 1.0)
+        self.assertEqual(
+            report["recommendation_diversity_accuracy"],
+            1.0,
+        )
+        self.assertEqual(
+            report["group_accuracy"]["unclassified"]["accuracy"],
+            1.0,
+        )
+        self.assertEqual(
+            report["diversity"]["unique_returned_parent_ids"],
+            2,
+        )
+        self.assertEqual(
+            report["diversity"]["unique_top_result_parent_ids"],
+            1,
+        )
         self.assertGreaterEqual(report["latency_ms"]["p95"], 0)
         self.assertEqual(report["estimated_cost_usd"], 0.0)
+        self.assertEqual(
+            retriever.last_call["price_max_filter"],
+            50000,
+        )
+        self.assertEqual(
+            retriever.last_call["open_at_filter"],
+            "12:00",
+        )
 
 
 if __name__ == "__main__":

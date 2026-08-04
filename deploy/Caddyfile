@@ -1,0 +1,29 @@
+{
+    email {$ACME_EMAIL}
+    admin off
+}
+
+{$PUBLIC_DOMAIN} {
+    encode zstd gzip
+
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        Content-Security-Policy "default-src 'self'; base-uri 'self'; connect-src 'self'; font-src 'self' data:; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'"
+        Permissions-Policy "camera=(), geolocation=(), microphone=()"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        -Server
+    }
+
+    handle /api/* {
+        reverse_proxy backend:8000 {
+            flush_interval -1
+            header_up X-Forwarded-For {remote_host}
+        }
+    }
+
+    handle {
+        reverse_proxy frontend:8080
+    }
+}

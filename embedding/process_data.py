@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -20,7 +21,7 @@ MODEL_NAME = os.getenv(
     "EMBEDDING_MODEL",
     "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
 )
-MAX_CHUNK_TOKENS = 90
+MAX_CHUNK_TOKENS = 120
 OVERLAP_TOKENS = 15
 FOOD_CATEGORY_NORMALIZED = "am thuc"
 
@@ -29,6 +30,9 @@ DATASETS = (
         "domain": "food",
         "input": PROJECT_ROOT / "data" / "raw" / "food_raw.json",
         "output": PROJECT_ROOT / "data" / "processed" / "food_chunks.json",
+        "manifest": (
+            PROJECT_ROOT / "data" / "processed" / "food_manifest.json"
+        ),
     },
 )
 
@@ -44,6 +48,20 @@ REQUIRED_FIELDS = (
     "description",
     "tags",
 )
+PROVENANCE_FIELDS = (
+    "source_name",
+    "source_url",
+    "retrieved_at",
+    "last_verified_at",
+    "license",
+)
+VERIFICATION_STATUSES = {
+    "verified",
+    "stale",
+    "conflicting",
+    "unverified",
+    "unknown",
+}
 
 
 def clean_text(value):
@@ -56,6 +74,27 @@ def clean_text(value):
 def normalize_for_filter(value):
     """Normalize Vietnamese text for exact Qdrant filters and reranking."""
     return normalize_text(clean_text(value))
+
+
+def json_sha256(data):
+    serialized = json.dumps(
+        data,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def build_knowledge_version(items, domain, max_tokens, overlap_tokens):
+    version_input = {
+        "schema_version": 1,
+        "domain": domain,
+        "max_tokens": max_tokens,
+        "overlap_tokens": overlap_tokens,
+        "items": items,
+    }
+    return f"{domain}-{json_sha256(version_input)[:12]}"
 
 
 def count_tokens(tokenizer, text):
@@ -173,11 +212,41 @@ def chunk_description(description, tokenizer, max_tokens, overlap_tokens):
 
 
 def build_prefix(item):
+    tags = ", ".join(item["tags"])
     return clean_text(
-        f"Tên: {item['title']}. "
-        f"Địa chỉ: {item['address']}. "
-        f"Quận: {item['district']}."
+        " | ".join(
+            [
+                item["title"],
+                item["address"],
+                item["district"],
+                item["category"],
+                item["sub_category"],
+                tags,
+                item["price_range"],
+                item["opening_hours"],
+            ]
+        )
     )
+
+
+def build_provenance(item):
+    provenance = {
+        field: clean_text(item.get(field)) or None
+        for field in PROVENANCE_FIELDS
+    }
+    provenance["retrieved_at"] = (
+        provenance["retrieved_at"]
+        or clean_text(item.get("collected_at"))
+        or None
+    )
+
+    verification_status = normalize_for_filter(
+        item.get("verification_status")
+    )
+    if verification_status not in VERIFICATION_STATUSES:
+        verification_status = "unverified"
+    provenance["verification_status"] = verification_status
+    return provenance
 
 
 def validate_item(item, domain, item_index):
@@ -194,9 +263,22 @@ def validate_item(item, domain, item_index):
         raise ValueError(f"{domain}[{item_index}].tags must be a list")
 
 
-def build_chunks(items, domain, tokenizer, max_tokens, overlap_tokens):
+def build_chunks(
+    items,
+    domain,
+    tokenizer,
+    max_tokens,
+    overlap_tokens,
+    knowledge_version=None,
+):
     chunks = []
     parent_ids = set()
+    resolved_version = knowledge_version or build_knowledge_version(
+        items,
+        domain,
+        max_tokens,
+        overlap_tokens,
+    )
 
     for item_index, raw_item in enumerate(items):
         validate_item(raw_item, domain, item_index)
@@ -207,10 +289,19 @@ def build_chunks(items, domain, tokenizer, max_tokens, overlap_tokens):
         ):
             continue
 
-        item = {key: clean_text(raw_item[key]) for key in REQUIRED_FIELDS if key != "tags"}
-        item["tags"] = [clean_text(tag) for tag in raw_item["tags"] if clean_text(tag)]
+        item = {
+            key: clean_text(raw_item[key])
+            for key in REQUIRED_FIELDS
+            if key != "tags"
+        }
+        item["tags"] = [
+            clean_text(tag)
+            for tag in raw_item["tags"]
+            if clean_text(tag)
+        ]
         price_data = parse_price_range(item["price_range"])
         opening_data = parse_opening_hours(item["opening_hours"])
+        provenance = build_provenance(raw_item)
 
         parent_id = item["id"]
         if parent_id in parent_ids:
@@ -226,7 +317,10 @@ def build_chunks(items, domain, tokenizer, max_tokens, overlap_tokens):
                 f"which exceeds the {max_tokens}-token chunk limit"
             )
 
-        body_overlap = min(overlap_tokens, max(body_token_limit - 1, 0))
+        body_overlap = min(
+            overlap_tokens,
+            max(body_token_limit // 3, 0),
+        )
         descriptions = chunk_description(
             description=item["description"],
             tokenizer=tokenizer,
@@ -249,6 +343,7 @@ def build_chunks(items, domain, tokenizer, max_tokens, overlap_tokens):
                     "parent_id": parent_id,
                     "chunk_index": chunk_index,
                     "domain": domain,
+                    "knowledge_version": resolved_version,
                     "city": "Hà Nội",
                     "title": item["title"],
                     "title_normalized": normalize_for_filter(item["title"]),
@@ -273,6 +368,7 @@ def build_chunks(items, domain, tokenizer, max_tokens, overlap_tokens):
                     ],
                     "description": description,
                     "vector_text": vector_text,
+                    **provenance,
                 }
             )
 
@@ -293,18 +389,52 @@ def write_json(path, data):
         json.dump(data, file, ensure_ascii=False, indent=2)
 
 
-def process_dataset(dataset, tokenizer, max_tokens, overlap_tokens, dry_run=False):
+def process_dataset(
+    dataset,
+    tokenizer,
+    max_tokens,
+    overlap_tokens,
+    dry_run=False,
+    embedding_model=MODEL_NAME,
+):
     raw_items = read_json(dataset["input"])
+    knowledge_version = build_knowledge_version(
+        raw_items,
+        dataset["domain"],
+        max_tokens,
+        overlap_tokens,
+    )
     chunks = build_chunks(
         items=raw_items,
         domain=dataset["domain"],
         tokenizer=tokenizer,
         max_tokens=max_tokens,
         overlap_tokens=overlap_tokens,
+        knowledge_version=knowledge_version,
     )
 
     if not dry_run:
         write_json(dataset["output"], chunks)
+        write_json(
+            dataset["manifest"],
+            {
+                "schema_version": 1,
+                "knowledge_version": knowledge_version,
+                "domain": dataset["domain"],
+                "dataset_sha256": json_sha256(raw_items),
+                "lexical_artifact_sha256": json_sha256(chunks),
+                "source_record_count": len(raw_items),
+                "indexed_parent_count": len(
+                    {chunk["parent_id"] for chunk in chunks}
+                ),
+                "chunk_count": len(chunks),
+                "chunking": {
+                    "max_tokens": max_tokens,
+                    "overlap_tokens": overlap_tokens,
+                },
+                "embedding_model": embedding_model,
+            },
+        )
 
     print(
         f"[{dataset['domain']}] {len(raw_items)} records -> {len(chunks)} chunks"
@@ -354,6 +484,7 @@ def main():
             max_tokens=args.max_tokens,
             overlap_tokens=args.overlap_tokens,
             dry_run=args.dry_run,
+            embedding_model=args.model,
         )
         for chunk in chunks:
             if chunk["chunk_id"] in all_chunk_ids:

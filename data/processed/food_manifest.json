@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "food-45902dc2724f",
+  "domain": "food",
+  "dataset_sha256": "6f60f01d506a0e92e4d57e28539f71b10e77076d917fb7bb22db6ce29a0eb025",
+  "lexical_artifact_sha256": "126f3b3879f649b853079562205c1923133532e4a720b4a39072e7d04e49f05b",
+  "source_record_count": 420,
+  "indexed_parent_count": 418,
+  "chunk_count": 773,
+  "chunking": {
+    "max_tokens": 120,
+    "overlap_tokens": 15
+  },
+  "embedding_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+}

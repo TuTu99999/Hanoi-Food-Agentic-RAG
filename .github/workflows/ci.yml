@@ -7,6 +7,7 @@ on:
     branches:
       - main
       - "feature/**"
+  workflow_dispatch:
   workflow_call:
 
 permissions:
@@ -39,7 +40,7 @@ jobs:
       APP_ENV: test
       DATABASE_URL: sqlite://
       JWT_SECRET_KEY: ci-test-secret-not-for-production
-      GITHUB_TOKEN: ci-test-token-not-a-real-credential
+      LLM_API_KEY: ci-test-token-not-a-real-credential
       CORS_ORIGINS: http://localhost:3000
       AUTH_COOKIE_SECURE: "false"
       AUTH_COOKIE_SAMESITE: lax
@@ -48,9 +49,9 @@ jobs:
       LOG_LEVEL: WARNING
       TORCH_VERSION: 2.13.0+cpu
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.10.11"
           cache: pip
@@ -69,11 +70,22 @@ jobs:
           core database embedding evals rag routers schemas services tests
           main.py eval_ragas.py eval_deepeval.py
 
+      - name: Check installed dependency compatibility
+        run: python -m pip check
+
       - name: Run unit tests
         run: python -m unittest discover -s tests -p "test_*.py" -v
 
       - name: Validate ML router benchmark
-        run: python -m rag.evaluate_query_router --min-accuracy 0.80
+        run: python -m rag.evaluate_query_router --min-accuracy 0.90
+
+      - name: Validate offline lexical retrieval
+        run: |
+          python -m scripts.build_retrieval_cases --check
+          python -m embedding.evaluate_retrieval \
+            --mode lexical \
+            --top-k 5 \
+            --min-accuracy 0.90
 
       - name: Test migrations on PostgreSQL
         env:
@@ -89,9 +101,9 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: npm
@@ -125,27 +137,46 @@ jobs:
             context: frontend
             file: frontend/Dockerfile
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       - name: Validate Compose files
         if: matrix.component == 'backend'
         env:
-          GITHUB_TOKEN: compose-test-token
+          LLM_API_KEY: compose-test-token
           POSTGRES_PASSWORD: compose-test-password
           BACKEND_IMAGE: ghcr.io/example/hanoi-food-backend:test
           FRONTEND_IMAGE: ghcr.io/example/hanoi-food-frontend:test
           DATABASE_URL: postgresql://postgres:compose-test-password@postgres:5432/hanoi_food
           JWT_SECRET_KEY: compose-test-secret-at-least-32-bytes
-          PUBLIC_ORIGIN: https://food.example.com
+          PUBLIC_DOMAIN: food.example.com
+          ACME_EMAIL: admin@example.com
           QDRANT_API_KEY: compose-test-qdrant-key
+          GRAFANA_ADMIN_PASSWORD: compose-test-grafana-password
         run: |
           docker compose -f compose.yml config --quiet
+          docker compose -f compose.monitoring.yml config --quiet
           docker compose -f compose.prod.yml config --quiet
+          docker run --rm \
+            --entrypoint /bin/promtool \
+            -v "$PWD/deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro" \
+            prom/prometheus:v3.13.2 \
+            check config /etc/prometheus/prometheus.yml
+          docker run --rm \
+            --entrypoint /bin/promtool \
+            -v "$PWD/deploy/prometheus/prometheus.host.yml:/etc/prometheus/prometheus.yml:ro" \
+            prom/prometheus:v3.13.2 \
+            check config /etc/prometheus/prometheus.yml
+          docker run --rm \
+            -e ACME_EMAIL=admin@example.com \
+            -e PUBLIC_DOMAIN=food.example.com \
+            -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2.11.4-alpine \
+            caddy validate --config /etc/caddy/Caddyfile
 
       - name: Build image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}

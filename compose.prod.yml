@@ -1,5 +1,49 @@
 name: hanoi-food-rag
 
+x-backend-environment: &backend-environment
+  APP_ENV: production
+  DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY}
+  JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+  JWT_ISSUER: ${JWT_ISSUER:-hanoi-food-api}
+  JWT_AUDIENCE: ${JWT_AUDIENCE:-hanoi-food-web}
+  ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+  CORS_ORIGINS: https://${PUBLIC_DOMAIN:?Set PUBLIC_DOMAIN}
+  TRUSTED_HOSTS: ${PUBLIC_DOMAIN:?Set PUBLIC_DOMAIN},127.0.0.1,backend
+  TRUST_PROXY_HEADERS: "true"
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  LLM_API_KEY: ${LLM_API_KEY:-}
+  LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+  LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+  LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-hanoi-food-agentic-rag}
+  LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT:-https://api.smith.langchain.com}
+  LANGSMITH_WORKSPACE_ID: ${LANGSMITH_WORKSPACE_ID:-}
+  LLM_BASE_URL: ${LLM_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai}
+  LLM_MODEL: ${LLM_MODEL:-gemini-3.6-flash}
+  LLM_REASONING_EFFORT: ${LLM_REASONING_EFFORT:-minimal}
+  LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-800}
+  LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+  EMBEDDING_LOCAL_FILES_ONLY: "true"
+  QDRANT_URL: http://qdrant:6333
+  QDRANT_API_KEY: ${QDRANT_API_KEY:?Set QDRANT_API_KEY}
+  QDRANT_COLLECTION: ${QDRANT_COLLECTION:-hanoi_food_current}
+  FOOD_CATALOG_PATH: data/processed/food_chunks.json
+  AUTH_COOKIE_SECURE: "true"
+  AUTH_COOKIE_SAMESITE: ${AUTH_COOKIE_SAMESITE:-lax}
+  AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-}
+  CHAT_RATE_LIMIT_REQUESTS: ${CHAT_RATE_LIMIT_REQUESTS:-20}
+  CHAT_RATE_LIMIT_WINDOW_SECONDS: ${CHAT_RATE_LIMIT_WINDOW_SECONDS:-60}
+  LLM_DAILY_USER_REQUESTS: ${LLM_DAILY_USER_REQUESTS:-100}
+  LLM_DAILY_GLOBAL_REQUESTS: ${LLM_DAILY_GLOBAL_REQUESTS:-1000}
+  LLM_BUDGET_WINDOW_SECONDS: ${LLM_BUDGET_WINDOW_SECONDS:-86400}
+  LOGIN_RATE_LIMIT_REQUESTS: ${LOGIN_RATE_LIMIT_REQUESTS:-10}
+  LOGIN_RATE_LIMIT_WINDOW_SECONDS: ${LOGIN_RATE_LIMIT_WINDOW_SECONDS:-300}
+  REGISTER_RATE_LIMIT_REQUESTS: ${REGISTER_RATE_LIMIT_REQUESTS:-5}
+  REGISTER_RATE_LIMIT_WINDOW_SECONDS: ${REGISTER_RATE_LIMIT_WINDOW_SECONDS:-3600}
+  DB_SCHEMA_CHECK: "true"
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
 services:
   postgres:
     image: postgres:16.4-alpine
@@ -39,35 +83,26 @@ services:
       - huggingface_cache:/home/app/.cache/huggingface
     restart: "no"
 
-  backend:
+  migrate:
     image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE}
     environment:
-      APP_ENV: production
-      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY}
-      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
-      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
-      CORS_ORIGINS: ${PUBLIC_ORIGIN:?Set PUBLIC_ORIGIN}
-      GITHUB_TOKEN: ${GITHUB_TOKEN:?Set GITHUB_TOKEN}
-      LLM_BASE_URL: ${LLM_BASE_URL:-https://models.inference.ai.azure.com}
-      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
-      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
-      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
-      EMBEDDING_LOCAL_FILES_ONLY: "true"
-      QDRANT_URL: http://qdrant:6333
-      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
-      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-hanoi_food_current}
-      FOOD_CATALOG_PATH: data/processed/food_chunks.json
-      AUTH_COOKIE_SECURE: "true"
-      AUTH_COOKIE_SAMESITE: ${AUTH_COOKIE_SAMESITE:-lax}
-      AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-}
-      DB_SCHEMA_CHECK: "true"
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    volumes:
-      - huggingface_cache:/home/app/.cache/huggingface
+      <<: *backend-environment
+      DB_SCHEMA_CHECK: "false"
+    command: ["alembic", "upgrade", "head"]
     depends_on:
       postgres:
         condition: service_healthy
+    restart: "no"
+
+  backend:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE}
+    environment:
+      <<: *backend-environment
+    volumes:
+      - huggingface_cache:/home/app/.cache/huggingface
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
       qdrant:
         condition: service_healthy
       model-cache:
@@ -76,10 +111,68 @@ services:
 
   frontend:
     image: ${FRONTEND_IMAGE:?Set FRONTEND_IMAGE}
-    ports:
-      - "${HTTP_PORT:-80}:8080"
     depends_on:
       backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.13.2
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME:-15d}
+      - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-2GB}
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9090/-/ready >/dev/null"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:13.1.1
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    ports:
+      - "127.0.0.1:3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/etc/grafana/dashboards:ro
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    restart: unless-stopped
+
+  edge:
+    image: caddy:2.11.4-alpine
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL}
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?Set PUBLIC_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      frontend:
         condition: service_healthy
     restart: unless-stopped
 
@@ -89,3 +182,7 @@ volumes:
     external: true
     name: ${QDRANT_VOLUME_NAME:-qdrant_storage}
   huggingface_cache:
+  caddy_data:
+  caddy_config:
+  prometheus_data:
+  grafana_data:

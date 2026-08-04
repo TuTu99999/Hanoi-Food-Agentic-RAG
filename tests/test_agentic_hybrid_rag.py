@@ -1,8 +1,12 @@
 from concurrent.futures import ThreadPoolExecutor
+import os
 from pathlib import Path
 from types import SimpleNamespace
 import threading
 import unittest
+
+os.environ["APP_ENV"] = "test"
+os.environ["LANGSMITH_TRACING"] = "false"
 
 from embedding.catalog_schema import (
     is_open_at,
@@ -10,7 +14,10 @@ from embedding.catalog_schema import (
     parse_price_range,
 )
 from embedding.lexical_index import LexicalIndex
-from embedding.retrieval_engine import RetrievalEngine
+from embedding.retrieval_engine import (
+    RetrievalConfigurationError,
+    RetrievalEngine,
+)
 from rag.agentic_graph import (
     HARD_FILTER_EMPTY,
     LOW_RELEVANCE,
@@ -257,6 +264,91 @@ class AgenticHybridRAGTests(unittest.TestCase):
         self.assertIn("keyword", results[0]["retrieval_sources"])
         self.assertGreater(results[0]["keyword_score"], 0)
 
+    def test_lexical_price_min_uses_available_price_range(self):
+        affordable = catalog_row(
+            "food_affordable",
+            "Quán bình dân",
+            description="Món Việt giá hợp lý.",
+        )
+        premium = catalog_row(
+            "food_premium",
+            "Quán cao cấp",
+            description="Món Việt cao cấp.",
+        )
+        premium["price_range"] = "120.000đ - 250.000đ"
+        index = LexicalIndex([affordable, premium])
+
+        results = index.keyword_search(
+            "món việt",
+            price_min=100000,
+        )
+
+        self.assertEqual(
+            [document["parent_id"] for document in results],
+            ["food_premium"],
+        )
+        affordable_results = index.keyword_search(
+            "món việt",
+            price_max=50000,
+        )
+        self.assertEqual(
+            [
+                document["parent_id"]
+                for document in affordable_results
+            ],
+            ["food_affordable"],
+        )
+
+    def test_mixed_knowledge_versions_are_rejected(self):
+        first = catalog_row(
+            "food_v1",
+            "Quán phiên bản một",
+            description="Dữ liệu phiên bản một.",
+        )
+        second = catalog_row(
+            "food_v2",
+            "Quán phiên bản hai",
+            description="Dữ liệu phiên bản hai.",
+        )
+        first["knowledge_version"] = "food-v1"
+        second["knowledge_version"] = "food-v2"
+
+        with self.assertRaises(ValueError):
+            LexicalIndex([first, second])
+
+    def test_semantic_and_lexical_versions_must_match(self):
+        engine = RetrievalEngine.__new__(RetrievalEngine)
+        engine.lexical_index = SimpleNamespace(
+            knowledge_version="food-v2"
+        )
+
+        with self.assertRaises(RetrievalConfigurationError):
+            engine._validate_knowledge_versions(
+                [{"knowledge_version": "food-v1"}]
+            )
+
+    def test_readiness_rejects_stale_qdrant_collection(self):
+        client = SimpleNamespace(
+            get_collection=lambda _name: object(),
+            scroll=lambda **_kwargs: (
+                [
+                    SimpleNamespace(
+                        payload={"knowledge_version": "food-v1"}
+                    )
+                ],
+                None,
+            ),
+        )
+        engine = RetrievalEngine.__new__(RetrievalEngine)
+        engine.client = client
+        engine.collection_name = "hanoi_food_current"
+        engine.lexical_index = SimpleNamespace(
+            knowledge_version="food-v2"
+        )
+
+        with self.assertRaises(RetrievalConfigurationError):
+            engine.check_ready()
+
     def test_exact_shortcut_does_not_call_embedding(self):
         engine = RetrievalEngine.__new__(RetrievalEngine)
         engine.lexical_index = LexicalIndex(
@@ -372,7 +464,7 @@ class AgenticHybridRAGTests(unittest.TestCase):
             "hoan kiem",
         )
         self.assertEqual(conditions["domain"].match.value, "food")
-        self.assertEqual(conditions["price_max"].range.lte, 50000)
+        self.assertEqual(conditions["price_min"].range.lte, 50000)
 
     def test_workflow_forces_food_and_drops_travel_documents(self):
         retriever = RecordingRetriever(
@@ -512,6 +604,81 @@ class AgenticHybridRAGTests(unittest.TestCase):
         self.assertEqual(result.retry_count, 0)
         self.assertEqual(retriever.calls[0]["price_max_filter"], 50000)
         self.assertEqual(retriever.calls[0]["open_at_filter"], "23:00")
+
+    def test_price_direction_phrases_are_understood(self):
+        self.assertEqual(
+            AgenticRAGWorkflow._extract_price_max(
+                "quán phở giá 50k đổ về"
+            ),
+            50000,
+        )
+        self.assertEqual(
+            AgenticRAGWorkflow._extract_price_min(
+                "tìm loại 50k đổ lên"
+            ),
+            50000,
+        )
+        self.assertEqual(
+            AgenticRAGWorkflow._extract_price_min(
+                "quán giá từ 50k đến 100k"
+            ),
+            50000,
+        )
+        self.assertEqual(
+            AgenticRAGWorkflow._extract_price_max(
+                "quán giá từ 50k đến 100k"
+            ),
+            100000,
+        )
+
+    def test_new_price_constraint_replaces_previous_turn(self):
+        retriever = RecordingRetriever(
+            [retrieval_result([evidence_document()])]
+        )
+        workflow = AgenticRAGWorkflow(
+            retriever,
+            min_score=0.5,
+            query_router=FixedRouter(),
+        )
+
+        workflow.invoke(
+            "Vậy thì tìm loại 50k đổ lên đi.",
+            history=[
+                {
+                    "role": "user",
+                    "content": "Tìm quán phở giá 50k đổ về.",
+                },
+                {
+                    "role": "assistant",
+                    "content": "Mình đã tìm được vài quán.",
+                },
+            ],
+        )
+
+        self.assertEqual(retriever.calls[0]["price_min_filter"], 50000)
+        self.assertIsNone(retriever.calls[0]["price_max_filter"])
+
+    def test_follow_up_keeps_previous_price_constraint(self):
+        retriever = RecordingRetriever(
+            [retrieval_result([evidence_document()])]
+        )
+        workflow = AgenticRAGWorkflow(
+            retriever,
+            min_score=0.5,
+            query_router=FixedRouter(),
+        )
+
+        workflow.invoke(
+            "Quán đó còn mở không?",
+            history=[
+                {
+                    "role": "user",
+                    "content": "Tìm quán phở dưới 80k.",
+                }
+            ],
+        )
+
+        self.assertEqual(retriever.calls[0]["price_max_filter"], 80000)
 
     def test_keyword_overlap_is_not_evidence_for_router_fallback(self):
         weak_document = evidence_document(semantic_score=0.2)

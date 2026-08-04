@@ -1,12 +1,14 @@
 import datetime
+import uuid
 from datetime import timezone
 from urllib.parse import urlsplit
 
-import jwt
 import bcrypt
+import jwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
+from starlette.datastructures import MutableHeaders
 
 from core.config import ConfigurationError, normalize_origin, settings
 from database.connection import get_db
@@ -68,13 +70,17 @@ def validate_csrf_request(request: Request) -> None:
 
     source_origin = _request_source_origin(request)
     trusted_origins = set(settings.CORS_ORIGINS)
-    try:
-        base_url = urlsplit(str(request.base_url))
-        trusted_origins.add(
-            normalize_origin(f"{base_url.scheme}://{base_url.netloc}")
-        )
-    except ConfigurationError:
-        pass
+
+    # TestClient and local direct API calls do not have a configured browser
+    # origin. Production only trusts the explicit CORS allowlist.
+    if settings.APP_ENV != "production":
+        try:
+            base_url = urlsplit(str(request.base_url))
+            trusted_origins.add(
+                normalize_origin(f"{base_url.scheme}://{base_url.netloc}")
+            )
+        except ConfigurationError:
+            pass
 
     if source_origin not in trusted_origins:
         raise HTTPException(
@@ -83,8 +89,9 @@ def validate_csrf_request(request: Request) -> None:
         )
 
 
-# Hỗ trợ HttpOnly cookie cho browser và Bearer header cho Swagger/API clients.
 class HTTPBearerWithCookie(HTTPBearer):
+    """Read auth from an HttpOnly cookie or a Bearer header."""
+
     async def __call__(self, request: Request) -> str | None:
         token = request.cookies.get(settings.AUTH_COOKIE_NAME)
         if token:
@@ -98,56 +105,143 @@ class HTTPBearerWithCookie(HTTPBearer):
         )
         if credentials is not None:
             return credentials.credentials
-
         return None
+
+
+class NoStoreMiddleware:
+    """Prevent browsers and proxies from caching sensitive API responses."""
+
+    def __init__(self, app, path_prefixes: tuple[str, ...]):
+        self.app = app
+        self.path_prefixes = path_prefixes
+
+    async def __call__(self, scope, receive, send):
+        if (
+            scope["type"] != "http"
+            or not scope.get("path", "").startswith(self.path_prefixes)
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        async def send_no_store(message):
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers["Cache-Control"] = "private, no-cache, no-store"
+                headers["Pragma"] = "no-cache"
+            await send(message)
+
+        await self.app(scope, receive, send_no_store)
 
 
 auth_scheme = HTTPBearerWithCookie(auto_error=False)
 
 
 def hash_password(password: str) -> str:
-    # bcrypt yêu cầu input dạng bytes
-    pwd_bytes = password.encode('utf-8')
-    # Tạo salt và hash
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(pwd_bytes, salt)
-    return hashed.decode('utf-8')
+    return bcrypt.hashpw(
+        password.encode("utf-8"),
+        bcrypt.gensalt(),
+    ).decode("utf-8")
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    pwd_bytes = plain_password.encode('utf-8')
-    hashed_bytes = hashed_password.encode('utf-8')
-    return bcrypt.checkpw(pwd_bytes, hashed_bytes)
-
-def create_access_token(data: dict) -> str:
-    to_encode = data.copy()
-    # Dùng timezone-aware UTC datetime để tránh warning
-    expire = datetime.datetime.now(timezone.utc) + datetime.timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
-
-def get_current_user(
-    token: str = Depends(auth_scheme),
-    db: Session = Depends(get_db),
-) -> UserModel:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Thông tin xác thực tài khoản không hợp lệ hoặc đã hết hạn",
-        headers={"WWW-Authenticate": "Bearer"},
+    return bcrypt.checkpw(
+        plain_password.encode("utf-8"),
+        hashed_password.encode("utf-8"),
     )
-    
+
+
+def create_access_token(user: UserModel) -> str:
+    now = datetime.datetime.now(timezone.utc)
+    expire = now + datetime.timedelta(
+        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    )
+    payload = {
+        "sub": str(user.id),
+        "username": user.username,
+        "ver": user.token_version,
+        "iat": now,
+        "exp": expire,
+        "jti": str(uuid.uuid4()),
+        "iss": settings.JWT_ISSUER,
+        "aud": settings.JWT_AUDIENCE,
+    }
+    return jwt.encode(
+        payload,
+        settings.JWT_SECRET_KEY,
+        algorithm=settings.JWT_ALGORITHM,
+    )
+
+
+def _decode_access_token(token: str) -> dict:
+    return jwt.decode(
+        token,
+        settings.JWT_SECRET_KEY,
+        algorithms=[settings.JWT_ALGORITHM],
+        issuer=settings.JWT_ISSUER,
+        audience=settings.JWT_AUDIENCE,
+        options={
+            "require": [
+                "sub",
+                "ver",
+                "iat",
+                "exp",
+                "jti",
+                "iss",
+                "aud",
+            ]
+        },
+    )
+
+
+def _user_from_token(
+    token: str | None,
+    db: Session,
+) -> UserModel | None:
     if not token:
-        raise credentials_exception
+        return None
 
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-    except jwt.PyJWTError:
-        raise credentials_exception
-        
-    user = db.query(UserModel).filter(UserModel.username == username).first()
+        payload = _decode_access_token(token)
+        user_id = int(payload["sub"])
+        token_version = payload["ver"]
+        if (
+            isinstance(token_version, bool)
+            or not isinstance(token_version, int)
+            or not isinstance(payload["jti"], str)
+        ):
+            return None
+    except (KeyError, TypeError, ValueError, jwt.PyJWTError):
+        return None
+
+    return (
+        db.query(UserModel)
+        .filter(
+            UserModel.id == user_id,
+            UserModel.token_version == token_version,
+        )
+        .first()
+    )
+
+
+def get_current_user(
+    token: str | None = Depends(auth_scheme),
+    db: Session = Depends(get_db),
+) -> UserModel:
+    user = _user_from_token(token, db)
     if user is None:
-        raise credentials_exception
-        
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=(
+                "Thông tin xác thực tài khoản không hợp lệ "
+                "hoặc đã hết hạn"
+            ),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return user
+
+
+def get_optional_current_user(
+    token: str | None = Depends(auth_scheme),
+    db: Session = Depends(get_db),
+) -> UserModel | None:
+    return _user_from_token(token, db)

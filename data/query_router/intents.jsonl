@@ -82,3 +82,409 @@
 {"text":"tóm tắt bộ phim này giúp tôi","label":"out_of_scope","group_id":"out_of_scope_010"}
 {"text":"mở nhạc cho mình nghe","label":"out_of_scope","group_id":"out_of_scope_011"}
 {"text":"cách sửa lỗi JavaScript là gì","label":"out_of_scope","group_id":"out_of_scope_012"}
+{"text":"xin chào bạn ơi","label":"chitchat","group_id":"aug_chitchat_001"}
+{"text":"chào buổi chiều bạn ơi","label":"chitchat","group_id":"aug_chitchat_002"}
+{"text":"hello nha bạn ơi","label":"chitchat","group_id":"aug_chitchat_003"}
+{"text":"chao ban bạn ơi","label":"chitchat","group_id":"aug_chitchat_004"}
+{"text":"xin chào, mình hỏi chút được không","label":"chitchat","group_id":"aug_chitchat_005"}
+{"text":"chào buổi chiều, mình hỏi chút được không","label":"chitchat","group_id":"aug_chitchat_006"}
+{"text":"hello nha, mình hỏi chút được không","label":"chitchat","group_id":"aug_chitchat_007"}
+{"text":"chao ban, mình hỏi chút được không","label":"chitchat","group_id":"aug_chitchat_008"}
+{"text":"chúc bạn buổi sáng vui vẻ","label":"chitchat","group_id":"aug_chitchat_009"}
+{"text":"chúc bạn buổi tối vui vẻ","label":"chitchat","group_id":"aug_chitchat_010"}
+{"text":"chúc bạn cuối tuần vui vẻ","label":"chitchat","group_id":"aug_chitchat_011"}
+{"text":"chúc bạn hôm nay vui vẻ","label":"chitchat","group_id":"aug_chitchat_012"}
+{"text":"cảm ơn vì đã tư vấn cho mình","label":"chitchat","group_id":"aug_chitchat_013"}
+{"text":"cảm ơn vì đã giải thích rõ","label":"chitchat","group_id":"aug_chitchat_014"}
+{"text":"cảm ơn vì đã hỗ trợ nãy giờ","label":"chitchat","group_id":"aug_chitchat_015"}
+{"text":"cảm ơn vì đã trả lời câu hỏi","label":"chitchat","group_id":"aug_chitchat_016"}
+{"text":"ok nha, cảm ơn bạn","label":"chitchat","group_id":"aug_chitchat_017"}
+{"text":"ok nha, thanks nhiều","label":"chitchat","group_id":"aug_chitchat_018"}
+{"text":"ok nha, mình rõ rồi","label":"chitchat","group_id":"aug_chitchat_019"}
+{"text":"ok nha, cam on nhe","label":"chitchat","group_id":"aug_chitchat_020"}
+{"text":"mình hiểu rồi, cảm ơn nhiều","label":"chitchat","group_id":"aug_chitchat_021"}
+{"text":"hẹn gặp lại bạn sau nhé","label":"chitchat","group_id":"aug_chitchat_022"}
+{"text":"hẹn gặp lại bạn ngày mai","label":"chitchat","group_id":"aug_chitchat_023"}
+{"text":"hẹn gặp lại bạn lần tới","label":"chitchat","group_id":"aug_chitchat_024"}
+{"text":"hẹn gặp lại bạn khi khác","label":"chitchat","group_id":"aug_chitchat_025"}
+{"text":"tạm biệt nhé, chúc bạn một ngày tốt lành","label":"chitchat","group_id":"aug_chitchat_026"}
+{"text":"tạm biệt nhé, chúc bạn làm việc hiệu quả","label":"chitchat","group_id":"aug_chitchat_027"}
+{"text":"tạm biệt nhé, chúc bạn luôn vui vẻ","label":"chitchat","group_id":"aug_chitchat_028"}
+{"text":"tạm biệt nhé, chúc bạn ngủ ngon","label":"chitchat","group_id":"aug_chitchat_029"}
+{"text":"bạn có khỏe không","label":"chitchat","group_id":"aug_chitchat_030"}
+{"text":"hôm nay nói chuyện với bạn vui ghê","label":"chitchat","group_id":"aug_chitchat_031"}
+{"text":"alo, bạn còn ở đó không","label":"chitchat","group_id":"aug_chitchat_032"}
+{"text":"ê trợ lý ơi, nghe mình nói không","label":"chitchat","group_id":"aug_chitchat_033"}
+{"text":"xin chào, rất vui được gặp bạn","label":"chitchat","group_id":"aug_chitchat_034"}
+{"text":"chào buổi chiều, rất vui được gặp bạn","label":"chitchat","group_id":"aug_chitchat_035"}
+{"text":"hello nha, rất vui được gặp bạn","label":"chitchat","group_id":"aug_chitchat_036"}
+{"text":"chao ban, rất vui được gặp bạn","label":"chitchat","group_id":"aug_chitchat_037"}
+{"text":"cảm ơn bạn, mình không còn thắc mắc nữa","label":"chitchat","group_id":"aug_chitchat_038"}
+{"text":"thanks nhiều, mình không còn thắc mắc nữa","label":"chitchat","group_id":"aug_chitchat_039"}
+{"text":"mình rõ rồi, mình không còn thắc mắc nữa","label":"chitchat","group_id":"aug_chitchat_040"}
+{"text":"cam on nhe, mình không còn thắc mắc nữa","label":"chitchat","group_id":"aug_chitchat_041"}
+{"text":"chúc bạn một ngày tốt lành","label":"chitchat","group_id":"aug_chitchat_042"}
+{"text":"chúc bạn làm việc hiệu quả","label":"chitchat","group_id":"aug_chitchat_043"}
+{"text":"chúc bạn luôn vui vẻ","label":"chitchat","group_id":"aug_chitchat_044"}
+{"text":"chúc bạn ngủ ngon","label":"chitchat","group_id":"aug_chitchat_045"}
+{"text":"sau nhé mình lại trò chuyện tiếp nha","label":"chitchat","group_id":"aug_chitchat_046"}
+{"text":"ngày mai mình lại trò chuyện tiếp nha","label":"chitchat","group_id":"aug_chitchat_047"}
+{"text":"lần tới mình lại trò chuyện tiếp nha","label":"chitchat","group_id":"aug_chitchat_048"}
+{"text":"Phở Thìn Bờ Hồ nằm chính xác ở đâu","label":"entity_lookup","group_id":"aug_entity_lookup_001"}
+{"text":"Bún Chả Hương Liên nằm chính xác ở đâu","label":"entity_lookup","group_id":"aug_entity_lookup_002"}
+{"text":"Chả Cá Thăng Long nằm chính xác ở đâu","label":"entity_lookup","group_id":"aug_entity_lookup_003"}
+{"text":"Xôi Yến Nguyễn Hữu Huân nằm chính xác ở đâu","label":"entity_lookup","group_id":"aug_entity_lookup_004"}
+{"text":"cho mình địa chỉ của Phở Thìn Bờ Hồ","label":"entity_lookup","group_id":"aug_entity_lookup_005"}
+{"text":"cho mình địa chỉ của Bún Chả Hương Liên","label":"entity_lookup","group_id":"aug_entity_lookup_006"}
+{"text":"cho mình địa chỉ của Chả Cá Thăng Long","label":"entity_lookup","group_id":"aug_entity_lookup_007"}
+{"text":"cho mình địa chỉ của Xôi Yến Nguyễn Hữu Huân","label":"entity_lookup","group_id":"aug_entity_lookup_008"}
+{"text":"Phở Thìn Bờ Hồ mở cửa từ mấy giờ","label":"entity_lookup","group_id":"aug_entity_lookup_009"}
+{"text":"Bún Chả Hương Liên mở cửa từ mấy giờ","label":"entity_lookup","group_id":"aug_entity_lookup_010"}
+{"text":"Chả Cá Thăng Long mở cửa từ mấy giờ","label":"entity_lookup","group_id":"aug_entity_lookup_011"}
+{"text":"Xôi Yến Nguyễn Hữu Huân mở cửa từ mấy giờ","label":"entity_lookup","group_id":"aug_entity_lookup_012"}
+{"text":"quán Phở Thìn Bờ Hồ đóng cửa lúc nào vậy","label":"entity_lookup","group_id":"aug_entity_lookup_013"}
+{"text":"quán Bún Chả Hương Liên đóng cửa lúc nào vậy","label":"entity_lookup","group_id":"aug_entity_lookup_014"}
+{"text":"quán Chả Cá Thăng Long đóng cửa lúc nào vậy","label":"entity_lookup","group_id":"aug_entity_lookup_015"}
+{"text":"quán Xôi Yến Nguyễn Hữu Huân đóng cửa lúc nào vậy","label":"entity_lookup","group_id":"aug_entity_lookup_016"}
+{"text":"một suất ở Phở Thìn Bờ Hồ giá khoảng bao nhiêu","label":"entity_lookup","group_id":"aug_entity_lookup_017"}
+{"text":"một suất ở Bún Chả Hương Liên giá khoảng bao nhiêu","label":"entity_lookup","group_id":"aug_entity_lookup_018"}
+{"text":"một suất ở Chả Cá Thăng Long giá khoảng bao nhiêu","label":"entity_lookup","group_id":"aug_entity_lookup_019"}
+{"text":"một suất ở Xôi Yến Nguyễn Hữu Huân giá khoảng bao nhiêu","label":"entity_lookup","group_id":"aug_entity_lookup_020"}
+{"text":"Phở Thìn Bờ Hồ có món gì nổi bật","label":"entity_lookup","group_id":"aug_entity_lookup_021"}
+{"text":"Bún Chả Hương Liên có món gì nổi bật","label":"entity_lookup","group_id":"aug_entity_lookup_022"}
+{"text":"Chả Cá Thăng Long có món gì nổi bật","label":"entity_lookup","group_id":"aug_entity_lookup_023"}
+{"text":"Xôi Yến Nguyễn Hữu Huân có món gì nổi bật","label":"entity_lookup","group_id":"aug_entity_lookup_024"}
+{"text":"xin thông tin chi tiết về Phở Thìn Bờ Hồ","label":"entity_lookup","group_id":"aug_entity_lookup_025"}
+{"text":"xin thông tin chi tiết về Bún Chả Hương Liên","label":"entity_lookup","group_id":"aug_entity_lookup_026"}
+{"text":"xin thông tin chi tiết về Chả Cá Thăng Long","label":"entity_lookup","group_id":"aug_entity_lookup_027"}
+{"text":"xin thông tin chi tiết về Xôi Yến Nguyễn Hữu Huân","label":"entity_lookup","group_id":"aug_entity_lookup_028"}
+{"text":"số nhà của Phở Thìn Bờ Hồ là bao nhiêu","label":"entity_lookup","group_id":"aug_entity_lookup_029"}
+{"text":"số nhà của Bún Chả Hương Liên là bao nhiêu","label":"entity_lookup","group_id":"aug_entity_lookup_030"}
+{"text":"số nhà của Chả Cá Thăng Long là bao nhiêu","label":"entity_lookup","group_id":"aug_entity_lookup_031"}
+{"text":"số nhà của Xôi Yến Nguyễn Hữu Huân là bao nhiêu","label":"entity_lookup","group_id":"aug_entity_lookup_032"}
+{"text":"Phở Thìn Bờ Hồ thuộc quận nào","label":"entity_lookup","group_id":"aug_entity_lookup_033"}
+{"text":"Bún Chả Hương Liên thuộc quận nào","label":"entity_lookup","group_id":"aug_entity_lookup_034"}
+{"text":"Chả Cá Thăng Long thuộc quận nào","label":"entity_lookup","group_id":"aug_entity_lookup_035"}
+{"text":"Xôi Yến Nguyễn Hữu Huân thuộc quận nào","label":"entity_lookup","group_id":"aug_entity_lookup_036"}
+{"text":"ở Phở Thìn Bờ Hồ có chỗ để xe không","label":"entity_lookup","group_id":"aug_entity_lookup_037"}
+{"text":"ở Bún Chả Hương Liên có chỗ để xe không","label":"entity_lookup","group_id":"aug_entity_lookup_038"}
+{"text":"ở Chả Cá Thăng Long có chỗ để xe không","label":"entity_lookup","group_id":"aug_entity_lookup_039"}
+{"text":"ở Xôi Yến Nguyễn Hữu Huân có chỗ để xe không","label":"entity_lookup","group_id":"aug_entity_lookup_040"}
+{"text":"menu của Phở Thìn Bờ Hồ gồm những món nào","label":"entity_lookup","group_id":"aug_entity_lookup_041"}
+{"text":"menu của Bún Chả Hương Liên gồm những món nào","label":"entity_lookup","group_id":"aug_entity_lookup_042"}
+{"text":"menu của Chả Cá Thăng Long gồm những món nào","label":"entity_lookup","group_id":"aug_entity_lookup_043"}
+{"text":"menu của Xôi Yến Nguyễn Hữu Huân gồm những món nào","label":"entity_lookup","group_id":"aug_entity_lookup_044"}
+{"text":"Phở Thìn Bờ Hồ bán đến mấy giờ tối","label":"entity_lookup","group_id":"aug_entity_lookup_045"}
+{"text":"Bún Chả Hương Liên bán đến mấy giờ tối","label":"entity_lookup","group_id":"aug_entity_lookup_046"}
+{"text":"Chả Cá Thăng Long bán đến mấy giờ tối","label":"entity_lookup","group_id":"aug_entity_lookup_047"}
+{"text":"Xôi Yến Nguyễn Hữu Huân bán đến mấy giờ tối","label":"entity_lookup","group_id":"aug_entity_lookup_048"}
+{"text":"tìm quán phở bò ở Cầu Giấy","label":"food_search","group_id":"aug_food_search_001"}
+{"text":"tìm quán bún chả ở Ba Đình","label":"food_search","group_id":"aug_food_search_002"}
+{"text":"tìm quán cơm gà ở Đống Đa","label":"food_search","group_id":"aug_food_search_003"}
+{"text":"tìm quán lẩu ở Hai Bà Trưng","label":"food_search","group_id":"aug_food_search_004"}
+{"text":"Cầu Giấy có chỗ nào bán phở bò không","label":"food_search","group_id":"aug_food_search_005"}
+{"text":"Ba Đình có chỗ nào bán bún chả không","label":"food_search","group_id":"aug_food_search_006"}
+{"text":"Đống Đa có chỗ nào bán cơm gà không","label":"food_search","group_id":"aug_food_search_007"}
+{"text":"Hai Bà Trưng có chỗ nào bán lẩu không","label":"food_search","group_id":"aug_food_search_008"}
+{"text":"lọc giúp mình hàng phở bò giá dưới 50 nghìn","label":"food_search","group_id":"aug_food_search_009"}
+{"text":"lọc giúp mình hàng bún chả giá dưới 70k","label":"food_search","group_id":"aug_food_search_010"}
+{"text":"lọc giúp mình hàng cơm gà giá dưới 80.000 đồng","label":"food_search","group_id":"aug_food_search_011"}
+{"text":"lọc giúp mình hàng lẩu giá dưới 200k","label":"food_search","group_id":"aug_food_search_012"}
+{"text":"cho danh sách quán ăn sáng quanh Cầu Giấy","label":"food_search","group_id":"aug_food_search_013"}
+{"text":"cho danh sách quán ăn sáng quanh Ba Đình","label":"food_search","group_id":"aug_food_search_014"}
+{"text":"cho danh sách quán ăn sáng quanh Đống Đa","label":"food_search","group_id":"aug_food_search_015"}
+{"text":"cho danh sách quán ăn sáng quanh Hai Bà Trưng","label":"food_search","group_id":"aug_food_search_016"}
+{"text":"kiếm chỗ ăn phở bò còn mở buổi tối","label":"food_search","group_id":"aug_food_search_017"}
+{"text":"kiếm chỗ ăn bún chả còn mở buổi tối","label":"food_search","group_id":"aug_food_search_018"}
+{"text":"kiếm chỗ ăn cơm gà còn mở buổi tối","label":"food_search","group_id":"aug_food_search_019"}
+{"text":"kiếm chỗ ăn lẩu còn mở buổi tối","label":"food_search","group_id":"aug_food_search_020"}
+{"text":"quán phở bò nào gần khu Cầu Giấy","label":"food_search","group_id":"aug_food_search_021"}
+{"text":"quán bún chả nào gần khu Ba Đình","label":"food_search","group_id":"aug_food_search_022"}
+{"text":"quán cơm gà nào gần khu Đống Đa","label":"food_search","group_id":"aug_food_search_023"}
+{"text":"quán lẩu nào gần khu Hai Bà Trưng","label":"food_search","group_id":"aug_food_search_024"}
+{"text":"mình cần tìm đồ ăn giá rẻ tại Cầu Giấy","label":"food_search","group_id":"aug_food_search_025"}
+{"text":"mình cần tìm đồ ăn giá rẻ tại Ba Đình","label":"food_search","group_id":"aug_food_search_026"}
+{"text":"mình cần tìm đồ ăn giá rẻ tại Đống Đa","label":"food_search","group_id":"aug_food_search_027"}
+{"text":"mình cần tìm đồ ăn giá rẻ tại Hai Bà Trưng","label":"food_search","group_id":"aug_food_search_028"}
+{"text":"ở Cầu Giấy có quán nào mở khuya","label":"food_search","group_id":"aug_food_search_029"}
+{"text":"ở Ba Đình có quán nào mở khuya","label":"food_search","group_id":"aug_food_search_030"}
+{"text":"ở Đống Đa có quán nào mở khuya","label":"food_search","group_id":"aug_food_search_031"}
+{"text":"ở Hai Bà Trưng có quán nào mở khuya","label":"food_search","group_id":"aug_food_search_032"}
+{"text":"tìm hàng ăn có món phở bò và giá vừa túi tiền","label":"food_search","group_id":"aug_food_search_033"}
+{"text":"tìm hàng ăn có món bún chả và giá vừa túi tiền","label":"food_search","group_id":"aug_food_search_034"}
+{"text":"tìm hàng ăn có món cơm gà và giá vừa túi tiền","label":"food_search","group_id":"aug_food_search_035"}
+{"text":"tìm hàng ăn có món lẩu và giá vừa túi tiền","label":"food_search","group_id":"aug_food_search_036"}
+{"text":"cho t vài quán phở bò trong quận Cầu Giấy","label":"food_search","group_id":"aug_food_search_037"}
+{"text":"cho t vài quán bún chả trong quận Ba Đình","label":"food_search","group_id":"aug_food_search_038"}
+{"text":"cho t vài quán cơm gà trong quận Đống Đa","label":"food_search","group_id":"aug_food_search_039"}
+{"text":"cho t vài quán lẩu trong quận Hai Bà Trưng","label":"food_search","group_id":"aug_food_search_040"}
+{"text":"tim quan phở bò tai Cầu Giấy gia duoi 50 nghìn","label":"food_search","group_id":"aug_food_search_041"}
+{"text":"tim quan bún chả tai Ba Đình gia duoi 70k","label":"food_search","group_id":"aug_food_search_042"}
+{"text":"tim quan cơm gà tai Đống Đa gia duoi 80.000 đồng","label":"food_search","group_id":"aug_food_search_043"}
+{"text":"tim quan lẩu tai Hai Bà Trưng gia duoi 200k","label":"food_search","group_id":"aug_food_search_044"}
+{"text":"có nhà hàng nào bán phở bò quanh Cầu Giấy không","label":"food_search","group_id":"aug_food_search_045"}
+{"text":"có nhà hàng nào bán bún chả quanh Ba Đình không","label":"food_search","group_id":"aug_food_search_046"}
+{"text":"có nhà hàng nào bán cơm gà quanh Đống Đa không","label":"food_search","group_id":"aug_food_search_047"}
+{"text":"có nhà hàng nào bán lẩu quanh Hai Bà Trưng không","label":"food_search","group_id":"aug_food_search_048"}
+{"text":"gợi ý quán đồ Việt ngon cho hẹn hò","label":"recommendation","group_id":"aug_recommendation_001"}
+{"text":"gợi ý quán đồ nướng ngon cho sinh nhật","label":"recommendation","group_id":"aug_recommendation_002"}
+{"text":"gợi ý quán món chay ngon cho tiếp khách","label":"recommendation","group_id":"aug_recommendation_003"}
+{"text":"gợi ý quán hải sản ngon cho kỷ niệm","label":"recommendation","group_id":"aug_recommendation_004"}
+{"text":"mình nên ăn ở đâu khi muốn vị thanh nhẹ","label":"recommendation","group_id":"aug_recommendation_005"}
+{"text":"mình nên ăn ở đâu khi muốn ăn cay","label":"recommendation","group_id":"aug_recommendation_006"}
+{"text":"mình nên ăn ở đâu khi muốn đồ ít dầu mỡ","label":"recommendation","group_id":"aug_recommendation_007"}
+{"text":"mình nên ăn ở đâu khi muốn khẩu vị đậm đà","label":"recommendation","group_id":"aug_recommendation_008"}
+{"text":"tư vấn một quán phù hợp để hẹn hò","label":"recommendation","group_id":"aug_recommendation_009"}
+{"text":"tư vấn một quán phù hợp để sinh nhật","label":"recommendation","group_id":"aug_recommendation_010"}
+{"text":"tư vấn một quán phù hợp để tiếp khách","label":"recommendation","group_id":"aug_recommendation_011"}
+{"text":"tư vấn một quán phù hợp để kỷ niệm","label":"recommendation","group_id":"aug_recommendation_012"}
+{"text":"đề xuất giúp mình chỗ ăn có không gian yên tĩnh","label":"recommendation","group_id":"aug_recommendation_013"}
+{"text":"đề xuất giúp mình chỗ ăn có không gian ấm cúng","label":"recommendation","group_id":"aug_recommendation_014"}
+{"text":"đề xuất giúp mình chỗ ăn có không gian lịch sự","label":"recommendation","group_id":"aug_recommendation_015"}
+{"text":"đề xuất giúp mình chỗ ăn có không gian thoáng đãng","label":"recommendation","group_id":"aug_recommendation_016"}
+{"text":"chọn hộ quán đồ Việt đáng thử nhất","label":"recommendation","group_id":"aug_recommendation_017"}
+{"text":"chọn hộ quán đồ nướng đáng thử nhất","label":"recommendation","group_id":"aug_recommendation_018"}
+{"text":"chọn hộ quán món chay đáng thử nhất","label":"recommendation","group_id":"aug_recommendation_019"}
+{"text":"chọn hộ quán hải sản đáng thử nhất","label":"recommendation","group_id":"aug_recommendation_020"}
+{"text":"cuối tuần nên đi ăn món gì với người yêu","label":"recommendation","group_id":"aug_recommendation_021"}
+{"text":"cuối tuần nên đi ăn món gì với nhóm bạn","label":"recommendation","group_id":"aug_recommendation_022"}
+{"text":"cuối tuần nên đi ăn món gì với gia đình","label":"recommendation","group_id":"aug_recommendation_023"}
+{"text":"cuối tuần nên đi ăn món gì với đồng nghiệp","label":"recommendation","group_id":"aug_recommendation_024"}
+{"text":"có quán nào hợp cho người thích vị thanh nhẹ không","label":"recommendation","group_id":"aug_recommendation_025"}
+{"text":"có quán nào hợp cho người thích ăn cay không","label":"recommendation","group_id":"aug_recommendation_026"}
+{"text":"có quán nào hợp cho người thích đồ ít dầu mỡ không","label":"recommendation","group_id":"aug_recommendation_027"}
+{"text":"có quán nào hợp cho người thích khẩu vị đậm đà không","label":"recommendation","group_id":"aug_recommendation_028"}
+{"text":"recommend chỗ ăn yên tĩnh để hẹn hò","label":"recommendation","group_id":"aug_recommendation_029"}
+{"text":"recommend chỗ ăn ấm cúng để sinh nhật","label":"recommendation","group_id":"aug_recommendation_030"}
+{"text":"recommend chỗ ăn lịch sự để tiếp khách","label":"recommendation","group_id":"aug_recommendation_031"}
+{"text":"recommend chỗ ăn thoáng đãng để kỷ niệm","label":"recommendation","group_id":"aug_recommendation_032"}
+{"text":"mình phân vân không biết nên chọn quán nào cho người yêu","label":"recommendation","group_id":"aug_recommendation_033"}
+{"text":"mình phân vân không biết nên chọn quán nào cho nhóm bạn","label":"recommendation","group_id":"aug_recommendation_034"}
+{"text":"mình phân vân không biết nên chọn quán nào cho gia đình","label":"recommendation","group_id":"aug_recommendation_035"}
+{"text":"mình phân vân không biết nên chọn quán nào cho đồng nghiệp","label":"recommendation","group_id":"aug_recommendation_036"}
+{"text":"đề cử một địa điểm ăn uống thật yên tĩnh","label":"recommendation","group_id":"aug_recommendation_037"}
+{"text":"đề cử một địa điểm ăn uống thật ấm cúng","label":"recommendation","group_id":"aug_recommendation_038"}
+{"text":"đề cử một địa điểm ăn uống thật lịch sự","label":"recommendation","group_id":"aug_recommendation_039"}
+{"text":"đề cử một địa điểm ăn uống thật thoáng đãng","label":"recommendation","group_id":"aug_recommendation_040"}
+{"text":"theo bạn quán đồ Việt nào đáng trải nghiệm","label":"recommendation","group_id":"aug_recommendation_041"}
+{"text":"theo bạn quán đồ nướng nào đáng trải nghiệm","label":"recommendation","group_id":"aug_recommendation_042"}
+{"text":"theo bạn quán món chay nào đáng trải nghiệm","label":"recommendation","group_id":"aug_recommendation_043"}
+{"text":"theo bạn quán hải sản nào đáng trải nghiệm","label":"recommendation","group_id":"aug_recommendation_044"}
+{"text":"giúp mình chọn nơi ăn tối phù hợp với hẹn hò","label":"recommendation","group_id":"aug_recommendation_045"}
+{"text":"giúp mình chọn nơi ăn tối phù hợp với sinh nhật","label":"recommendation","group_id":"aug_recommendation_046"}
+{"text":"giúp mình chọn nơi ăn tối phù hợp với tiếp khách","label":"recommendation","group_id":"aug_recommendation_047"}
+{"text":"giúp mình chọn nơi ăn tối phù hợp với kỷ niệm","label":"recommendation","group_id":"aug_recommendation_048"}
+{"text":"so sánh Phở Thìn với Phở Lý Quốc Sư","label":"comparison","group_id":"aug_comparison_001"}
+{"text":"so sánh Xôi Yến với Xôi Bà Thảo","label":"comparison","group_id":"aug_comparison_002"}
+{"text":"so sánh Bún Chả Hương Liên với Bún Chả Đắc Kim","label":"comparison","group_id":"aug_comparison_003"}
+{"text":"so sánh Chả Cá Lã Vọng với Chả Cá Thăng Long","label":"comparison","group_id":"aug_comparison_004"}
+{"text":"Phở Thìn và Phở Lý Quốc Sư quán nào rẻ hơn","label":"comparison","group_id":"aug_comparison_005"}
+{"text":"Xôi Yến và Xôi Bà Thảo quán nào rẻ hơn","label":"comparison","group_id":"aug_comparison_006"}
+{"text":"Bún Chả Hương Liên và Bún Chả Đắc Kim quán nào rẻ hơn","label":"comparison","group_id":"aug_comparison_007"}
+{"text":"Chả Cá Lã Vọng và Chả Cá Thăng Long quán nào rẻ hơn","label":"comparison","group_id":"aug_comparison_008"}
+{"text":"nên chọn Phở Thìn hay Phở Lý Quốc Sư","label":"comparison","group_id":"aug_comparison_009"}
+{"text":"nên chọn Xôi Yến hay Xôi Bà Thảo","label":"comparison","group_id":"aug_comparison_010"}
+{"text":"nên chọn Bún Chả Hương Liên hay Bún Chả Đắc Kim","label":"comparison","group_id":"aug_comparison_011"}
+{"text":"nên chọn Chả Cá Lã Vọng hay Chả Cá Thăng Long","label":"comparison","group_id":"aug_comparison_012"}
+{"text":"chỗ nào ngon hơn giữa Phở Thìn và Phở Lý Quốc Sư","label":"comparison","group_id":"aug_comparison_013"}
+{"text":"chỗ nào ngon hơn giữa Xôi Yến và Xôi Bà Thảo","label":"comparison","group_id":"aug_comparison_014"}
+{"text":"chỗ nào ngon hơn giữa Bún Chả Hương Liên và Bún Chả Đắc Kim","label":"comparison","group_id":"aug_comparison_015"}
+{"text":"chỗ nào ngon hơn giữa Chả Cá Lã Vọng và Chả Cá Thăng Long","label":"comparison","group_id":"aug_comparison_016"}
+{"text":"đối chiếu giá và giờ mở cửa của Phở Thìn với Phở Lý Quốc Sư","label":"comparison","group_id":"aug_comparison_017"}
+{"text":"đối chiếu giá và giờ mở cửa của Xôi Yến với Xôi Bà Thảo","label":"comparison","group_id":"aug_comparison_018"}
+{"text":"đối chiếu giá và giờ mở cửa của Bún Chả Hương Liên với Bún Chả Đắc Kim","label":"comparison","group_id":"aug_comparison_019"}
+{"text":"đối chiếu giá và giờ mở cửa của Chả Cá Lã Vọng với Chả Cá Thăng Long","label":"comparison","group_id":"aug_comparison_020"}
+{"text":"Phở Thìn khác Phở Lý Quốc Sư ở điểm gì","label":"comparison","group_id":"aug_comparison_021"}
+{"text":"Xôi Yến khác Xôi Bà Thảo ở điểm gì","label":"comparison","group_id":"aug_comparison_022"}
+{"text":"Bún Chả Hương Liên khác Bún Chả Đắc Kim ở điểm gì","label":"comparison","group_id":"aug_comparison_023"}
+{"text":"Chả Cá Lã Vọng khác Chả Cá Thăng Long ở điểm gì","label":"comparison","group_id":"aug_comparison_024"}
+{"text":"quán nào phù hợp đi nhóm hơn, Phở Thìn hay Phở Lý Quốc Sư","label":"comparison","group_id":"aug_comparison_025"}
+{"text":"quán nào phù hợp đi nhóm hơn, Xôi Yến hay Xôi Bà Thảo","label":"comparison","group_id":"aug_comparison_026"}
+{"text":"quán nào phù hợp đi nhóm hơn, Bún Chả Hương Liên hay Bún Chả Đắc Kim","label":"comparison","group_id":"aug_comparison_027"}
+{"text":"quán nào phù hợp đi nhóm hơn, Chả Cá Lã Vọng hay Chả Cá Thăng Long","label":"comparison","group_id":"aug_comparison_028"}
+{"text":"so giúp mình chất lượng của Phở Thìn và Phở Lý Quốc Sư","label":"comparison","group_id":"aug_comparison_029"}
+{"text":"so giúp mình chất lượng của Xôi Yến và Xôi Bà Thảo","label":"comparison","group_id":"aug_comparison_030"}
+{"text":"so giúp mình chất lượng của Bún Chả Hương Liên và Bún Chả Đắc Kim","label":"comparison","group_id":"aug_comparison_031"}
+{"text":"so giúp mình chất lượng của Chả Cá Lã Vọng và Chả Cá Thăng Long","label":"comparison","group_id":"aug_comparison_032"}
+{"text":"giữa Phở Thìn với Phở Lý Quốc Sư, nơi nào gần trung tâm hơn","label":"comparison","group_id":"aug_comparison_033"}
+{"text":"giữa Xôi Yến với Xôi Bà Thảo, nơi nào gần trung tâm hơn","label":"comparison","group_id":"aug_comparison_034"}
+{"text":"giữa Bún Chả Hương Liên với Bún Chả Đắc Kim, nơi nào gần trung tâm hơn","label":"comparison","group_id":"aug_comparison_035"}
+{"text":"giữa Chả Cá Lã Vọng với Chả Cá Thăng Long, nơi nào gần trung tâm hơn","label":"comparison","group_id":"aug_comparison_036"}
+{"text":"phân tích ưu nhược điểm của Phở Thìn và Phở Lý Quốc Sư","label":"comparison","group_id":"aug_comparison_037"}
+{"text":"phân tích ưu nhược điểm của Xôi Yến và Xôi Bà Thảo","label":"comparison","group_id":"aug_comparison_038"}
+{"text":"phân tích ưu nhược điểm của Bún Chả Hương Liên và Bún Chả Đắc Kim","label":"comparison","group_id":"aug_comparison_039"}
+{"text":"phân tích ưu nhược điểm của Chả Cá Lã Vọng và Chả Cá Thăng Long","label":"comparison","group_id":"aug_comparison_040"}
+{"text":"Phở Thìn hay Phở Lý Quốc Sư có nhiều món hơn","label":"comparison","group_id":"aug_comparison_041"}
+{"text":"Xôi Yến hay Xôi Bà Thảo có nhiều món hơn","label":"comparison","group_id":"aug_comparison_042"}
+{"text":"Bún Chả Hương Liên hay Bún Chả Đắc Kim có nhiều món hơn","label":"comparison","group_id":"aug_comparison_043"}
+{"text":"Chả Cá Lã Vọng hay Chả Cá Thăng Long có nhiều món hơn","label":"comparison","group_id":"aug_comparison_044"}
+{"text":"mình phân vân giữa Phở Thìn và Phở Lý Quốc Sư, so sánh giúp","label":"comparison","group_id":"aug_comparison_045"}
+{"text":"mình phân vân giữa Xôi Yến và Xôi Bà Thảo, so sánh giúp","label":"comparison","group_id":"aug_comparison_046"}
+{"text":"mình phân vân giữa Bún Chả Hương Liên và Bún Chả Đắc Kim, so sánh giúp","label":"comparison","group_id":"aug_comparison_047"}
+{"text":"mình phân vân giữa Chả Cá Lã Vọng và Chả Cá Thăng Long, so sánh giúp","label":"comparison","group_id":"aug_comparison_048"}
+{"text":"lập lịch ăn uống một ngày ở Hoàn Kiếm","label":"planning","group_id":"aug_planning_001"}
+{"text":"lập lịch ăn uống cuối tuần ở Ba Đình","label":"planning","group_id":"aug_planning_002"}
+{"text":"lập lịch ăn uống hai ngày ở Đống Đa","label":"planning","group_id":"aug_planning_003"}
+{"text":"lập lịch ăn uống một buổi tối ở Tây Hồ","label":"planning","group_id":"aug_planning_004"}
+{"text":"xếp giúp mình hành trình ăn từ sáng đến tối tại Hoàn Kiếm","label":"planning","group_id":"aug_planning_005"}
+{"text":"xếp giúp mình hành trình ăn từ sáng đến tối tại Ba Đình","label":"planning","group_id":"aug_planning_006"}
+{"text":"xếp giúp mình hành trình ăn từ sáng đến tối tại Đống Đa","label":"planning","group_id":"aug_planning_007"}
+{"text":"xếp giúp mình hành trình ăn từ sáng đến tối tại Tây Hồ","label":"planning","group_id":"aug_planning_008"}
+{"text":"lên kế hoạch food tour cho hai người","label":"planning","group_id":"aug_planning_009"}
+{"text":"lên kế hoạch food tour cho gia đình","label":"planning","group_id":"aug_planning_010"}
+{"text":"lên kế hoạch food tour cho nhóm bạn","label":"planning","group_id":"aug_planning_011"}
+{"text":"lên kế hoạch food tour cho đồng nghiệp","label":"planning","group_id":"aug_planning_012"}
+{"text":"thiết kế lịch trình thử ba món Hà Nội trong một ngày","label":"planning","group_id":"aug_planning_013"}
+{"text":"thiết kế lịch trình thử bốn món Hà Nội trong cuối tuần","label":"planning","group_id":"aug_planning_014"}
+{"text":"thiết kế lịch trình thử năm món Hà Nội trong hai ngày","label":"planning","group_id":"aug_planning_015"}
+{"text":"thiết kế lịch trình thử hai món Hà Nội trong một buổi tối","label":"planning","group_id":"aug_planning_016"}
+{"text":"sắp xếp thứ tự các quán để đỡ phải di chuyển xa","label":"planning","group_id":"aug_planning_017"}
+{"text":"mình có một ngày, hãy lên lịch ăn hợp lý","label":"planning","group_id":"aug_planning_018"}
+{"text":"mình có cuối tuần, hãy lên lịch ăn hợp lý","label":"planning","group_id":"aug_planning_019"}
+{"text":"mình có hai ngày, hãy lên lịch ăn hợp lý","label":"planning","group_id":"aug_planning_020"}
+{"text":"mình có một buổi tối, hãy lên lịch ăn hợp lý","label":"planning","group_id":"aug_planning_021"}
+{"text":"lập kế hoạch ăn sáng trưa tối quanh Hoàn Kiếm","label":"planning","group_id":"aug_planning_022"}
+{"text":"lập kế hoạch ăn sáng trưa tối quanh Ba Đình","label":"planning","group_id":"aug_planning_023"}
+{"text":"lập kế hoạch ăn sáng trưa tối quanh Đống Đa","label":"planning","group_id":"aug_planning_024"}
+{"text":"lập kế hoạch ăn sáng trưa tối quanh Tây Hồ","label":"planning","group_id":"aug_planning_025"}
+{"text":"tạo lịch trình khám phá ẩm thực cho hai người","label":"planning","group_id":"aug_planning_026"}
+{"text":"tạo lịch trình khám phá ẩm thực cho gia đình","label":"planning","group_id":"aug_planning_027"}
+{"text":"tạo lịch trình khám phá ẩm thực cho nhóm bạn","label":"planning","group_id":"aug_planning_028"}
+{"text":"tạo lịch trình khám phá ẩm thực cho đồng nghiệp","label":"planning","group_id":"aug_planning_029"}
+{"text":"phân bổ ngân sách và địa điểm cho chuyến food tour một ngày","label":"planning","group_id":"aug_planning_030"}
+{"text":"phân bổ ngân sách và địa điểm cho chuyến food tour cuối tuần","label":"planning","group_id":"aug_planning_031"}
+{"text":"phân bổ ngân sách và địa điểm cho chuyến food tour hai ngày","label":"planning","group_id":"aug_planning_032"}
+{"text":"phân bổ ngân sách và địa điểm cho chuyến food tour một buổi tối","label":"planning","group_id":"aug_planning_033"}
+{"text":"xây dựng route ăn uống bắt đầu từ Hoàn Kiếm","label":"planning","group_id":"aug_planning_034"}
+{"text":"xây dựng route ăn uống bắt đầu từ Ba Đình","label":"planning","group_id":"aug_planning_035"}
+{"text":"xây dựng route ăn uống bắt đầu từ Đống Đa","label":"planning","group_id":"aug_planning_036"}
+{"text":"xây dựng route ăn uống bắt đầu từ Tây Hồ","label":"planning","group_id":"aug_planning_037"}
+{"text":"lên lịch ghé ba quán trong cùng một ngày","label":"planning","group_id":"aug_planning_038"}
+{"text":"lên lịch ghé bốn quán trong cùng một ngày","label":"planning","group_id":"aug_planning_039"}
+{"text":"lên lịch ghé năm quán trong cùng một ngày","label":"planning","group_id":"aug_planning_040"}
+{"text":"lên lịch ghé hai quán trong cùng một ngày","label":"planning","group_id":"aug_planning_041"}
+{"text":"giúp mình tổ chức buổi khám phá đồ ăn cho hai người","label":"planning","group_id":"aug_planning_042"}
+{"text":"giúp mình tổ chức buổi khám phá đồ ăn cho gia đình","label":"planning","group_id":"aug_planning_043"}
+{"text":"giúp mình tổ chức buổi khám phá đồ ăn cho nhóm bạn","label":"planning","group_id":"aug_planning_044"}
+{"text":"giúp mình tổ chức buổi khám phá đồ ăn cho đồng nghiệp","label":"planning","group_id":"aug_planning_045"}
+{"text":"sắp lịch trải nghiệm ẩm thực tại Hoàn Kiếm trong một ngày","label":"planning","group_id":"aug_planning_046"}
+{"text":"sắp lịch trải nghiệm ẩm thực tại Ba Đình trong cuối tuần","label":"planning","group_id":"aug_planning_047"}
+{"text":"sắp lịch trải nghiệm ẩm thực tại Đống Đa trong hai ngày","label":"planning","group_id":"aug_planning_048"}
+{"text":"dự báo thời tiết ngày mai thế nào","label":"out_of_scope","group_id":"aug_out_of_scope_001"}
+{"text":"dự báo thời tiết cuối tuần thế nào","label":"out_of_scope","group_id":"aug_out_of_scope_002"}
+{"text":"dự báo thời tiết tối nay thế nào","label":"out_of_scope","group_id":"aug_out_of_scope_003"}
+{"text":"dự báo thời tiết tuần sau thế nào","label":"out_of_scope","group_id":"aug_out_of_scope_004"}
+{"text":"viết giúp mình đoạn code Python","label":"out_of_scope","group_id":"aug_out_of_scope_005"}
+{"text":"viết giúp mình đoạn code JavaScript","label":"out_of_scope","group_id":"aug_out_of_scope_006"}
+{"text":"viết giúp mình đoạn code SQL","label":"out_of_scope","group_id":"aug_out_of_scope_007"}
+{"text":"viết giúp mình đoạn code React","label":"out_of_scope","group_id":"aug_out_of_scope_008"}
+{"text":"giải phương trình bậc hai","label":"out_of_scope","group_id":"aug_out_of_scope_009"}
+{"text":"giải phương trình hai ẩn","label":"out_of_scope","group_id":"aug_out_of_scope_010"}
+{"text":"giải phương trình lượng giác","label":"out_of_scope","group_id":"aug_out_of_scope_011"}
+{"text":"giải phương trình tích phân","label":"out_of_scope","group_id":"aug_out_of_scope_012"}
+{"text":"giá cổ phiếu FPT hôm nay bao nhiêu","label":"out_of_scope","group_id":"aug_out_of_scope_013"}
+{"text":"giá cổ phiếu VNM hôm nay bao nhiêu","label":"out_of_scope","group_id":"aug_out_of_scope_014"}
+{"text":"giá cổ phiếu Tesla hôm nay bao nhiêu","label":"out_of_scope","group_id":"aug_out_of_scope_015"}
+{"text":"giá cổ phiếu Apple hôm nay bao nhiêu","label":"out_of_scope","group_id":"aug_out_of_scope_016"}
+{"text":"đội nào vô địch World Cup","label":"out_of_scope","group_id":"aug_out_of_scope_017"}
+{"text":"đội nào vô địch Champions League","label":"out_of_scope","group_id":"aug_out_of_scope_018"}
+{"text":"đội nào vô địch Ngoại hạng Anh","label":"out_of_scope","group_id":"aug_out_of_scope_019"}
+{"text":"đội nào vô địch NBA","label":"out_of_scope","group_id":"aug_out_of_scope_020"}
+{"text":"tư vấn cách chữa bệnh đau đầu","label":"out_of_scope","group_id":"aug_out_of_scope_021"}
+{"text":"tư vấn cách chữa bệnh mất ngủ","label":"out_of_scope","group_id":"aug_out_of_scope_022"}
+{"text":"tư vấn cách chữa bệnh đau lưng","label":"out_of_scope","group_id":"aug_out_of_scope_023"}
+{"text":"tư vấn cách chữa bệnh dị ứng","label":"out_of_scope","group_id":"aug_out_of_scope_024"}
+{"text":"dịch câu này sang tiếng Anh","label":"out_of_scope","group_id":"aug_out_of_scope_025"}
+{"text":"dịch câu này sang tiếng Nhật","label":"out_of_scope","group_id":"aug_out_of_scope_026"}
+{"text":"dịch câu này sang tiếng Hàn","label":"out_of_scope","group_id":"aug_out_of_scope_027"}
+{"text":"dịch câu này sang tiếng Pháp","label":"out_of_scope","group_id":"aug_out_of_scope_028"}
+{"text":"kể mình nghe lịch sử của Văn Miếu","label":"out_of_scope","group_id":"aug_out_of_scope_029"}
+{"text":"kể mình nghe lịch sử của Hồ Gươm","label":"out_of_scope","group_id":"aug_out_of_scope_030"}
+{"text":"kể mình nghe lịch sử của Hoàng thành Thăng Long","label":"out_of_scope","group_id":"aug_out_of_scope_031"}
+{"text":"kể mình nghe lịch sử của Chùa Một Cột","label":"out_of_scope","group_id":"aug_out_of_scope_032"}
+{"text":"đặt vé máy bay đi Đà Nẵng","label":"out_of_scope","group_id":"aug_out_of_scope_033"}
+{"text":"đặt vé máy bay đi Singapore","label":"out_of_scope","group_id":"aug_out_of_scope_034"}
+{"text":"đặt vé máy bay đi Bangkok","label":"out_of_scope","group_id":"aug_out_of_scope_035"}
+{"text":"đặt vé máy bay đi Tokyo","label":"out_of_scope","group_id":"aug_out_of_scope_036"}
+{"text":"soạn email xin nghỉ phép giúp mình","label":"out_of_scope","group_id":"aug_out_of_scope_037"}
+{"text":"tỷ giá đô la hiện tại là bao nhiêu","label":"out_of_scope","group_id":"aug_out_of_scope_038"}
+{"text":"hướng dẫn cài đặt Docker","label":"out_of_scope","group_id":"aug_out_of_scope_039"}
+{"text":"hướng dẫn cài đặt Ubuntu","label":"out_of_scope","group_id":"aug_out_of_scope_040"}
+{"text":"hướng dẫn cài đặt PostgreSQL","label":"out_of_scope","group_id":"aug_out_of_scope_041"}
+{"text":"hướng dẫn cài đặt Git","label":"out_of_scope","group_id":"aug_out_of_scope_042"}
+{"text":"Đà Nẵng có khách sạn nào gần biển","label":"out_of_scope","group_id":"aug_out_of_scope_043"}
+{"text":"Singapore có khách sạn nào gần biển","label":"out_of_scope","group_id":"aug_out_of_scope_044"}
+{"text":"Bangkok có khách sạn nào gần biển","label":"out_of_scope","group_id":"aug_out_of_scope_045"}
+{"text":"Tokyo có khách sạn nào gần biển","label":"out_of_scope","group_id":"aug_out_of_scope_046"}
+{"text":"giải thích khái niệm Python cho người mới","label":"out_of_scope","group_id":"aug_out_of_scope_047"}
+{"text":"giải thích khái niệm JavaScript cho người mới","label":"out_of_scope","group_id":"aug_out_of_scope_048"}
+{"text":"khi khác mình lại trò chuyện tiếp nha","label":"chitchat","group_id":"expanded_chitchat_061"}
+{"text":"mong bạn có một buổi sáng thật dễ chịu","label":"chitchat","group_id":"expanded_chitchat_062"}
+{"text":"mong bạn có một buổi tối thật dễ chịu","label":"chitchat","group_id":"expanded_chitchat_063"}
+{"text":"mong bạn có một cuối tuần thật dễ chịu","label":"chitchat","group_id":"expanded_chitchat_064"}
+{"text":"mong bạn có một hôm nay thật dễ chịu","label":"chitchat","group_id":"expanded_chitchat_065"}
+{"text":"xin chào, hôm nay bạn thế nào","label":"chitchat","group_id":"expanded_chitchat_066"}
+{"text":"chào buổi chiều, hôm nay bạn thế nào","label":"chitchat","group_id":"expanded_chitchat_067"}
+{"text":"hello nha, hôm nay bạn thế nào","label":"chitchat","group_id":"expanded_chitchat_068"}
+{"text":"chao ban, hôm nay bạn thế nào","label":"chitchat","group_id":"expanded_chitchat_069"}
+{"text":"cảm ơn bạn, bạn hỗ trợ tốt lắm","label":"chitchat","group_id":"expanded_chitchat_070"}
+{"text":"Phở Thìn Bờ Hồ có phục vụ buổi tối không","label":"entity_lookup","group_id":"expanded_entity_lookup_061"}
+{"text":"Bún Chả Hương Liên có phục vụ buổi tối không","label":"entity_lookup","group_id":"expanded_entity_lookup_062"}
+{"text":"Chả Cá Thăng Long có phục vụ buổi tối không","label":"entity_lookup","group_id":"expanded_entity_lookup_063"}
+{"text":"Xôi Yến Nguyễn Hữu Huân có phục vụ buổi tối không","label":"entity_lookup","group_id":"expanded_entity_lookup_064"}
+{"text":"buổi tối quán Phở Thìn Bờ Hồ còn mở cửa chứ","label":"entity_lookup","group_id":"expanded_entity_lookup_065"}
+{"text":"buổi tối quán Bún Chả Hương Liên còn mở cửa chứ","label":"entity_lookup","group_id":"expanded_entity_lookup_066"}
+{"text":"buổi tối quán Chả Cá Thăng Long còn mở cửa chứ","label":"entity_lookup","group_id":"expanded_entity_lookup_067"}
+{"text":"buổi tối quán Xôi Yến Nguyễn Hữu Huân còn mở cửa chứ","label":"entity_lookup","group_id":"expanded_entity_lookup_068"}
+{"text":"kiểm tra giờ hoạt động cụ thể của Phở Thìn Bờ Hồ","label":"entity_lookup","group_id":"expanded_entity_lookup_069"}
+{"text":"kiểm tra giờ hoạt động cụ thể của Bún Chả Hương Liên","label":"entity_lookup","group_id":"expanded_entity_lookup_070"}
+{"text":"cần tìm quán ăn đêm tại Cầu Giấy","label":"food_search","group_id":"expanded_food_search_061"}
+{"text":"cần tìm quán ăn đêm tại Ba Đình","label":"food_search","group_id":"expanded_food_search_062"}
+{"text":"cần tìm quán ăn đêm tại Đống Đa","label":"food_search","group_id":"expanded_food_search_063"}
+{"text":"cần tìm quán ăn đêm tại Hai Bà Trưng","label":"food_search","group_id":"expanded_food_search_064"}
+{"text":"chỗ ăn nào ở Cầu Giấy vừa ngân sách 50 nghìn","label":"food_search","group_id":"expanded_food_search_065"}
+{"text":"chỗ ăn nào ở Ba Đình vừa ngân sách 70k","label":"food_search","group_id":"expanded_food_search_066"}
+{"text":"chỗ ăn nào ở Đống Đa vừa ngân sách 80.000 đồng","label":"food_search","group_id":"expanded_food_search_067"}
+{"text":"chỗ ăn nào ở Hai Bà Trưng vừa ngân sách 200k","label":"food_search","group_id":"expanded_food_search_068"}
+{"text":"lọc hàng ăn đang mở quanh Cầu Giấy","label":"food_search","group_id":"expanded_food_search_069"}
+{"text":"lọc hàng ăn đang mở quanh Ba Đình","label":"food_search","group_id":"expanded_food_search_070"}
+{"text":"tư vấn chỗ ăn tốt nhất cho người yêu","label":"recommendation","group_id":"expanded_recommendation_061"}
+{"text":"tư vấn chỗ ăn tốt nhất cho nhóm bạn","label":"recommendation","group_id":"expanded_recommendation_062"}
+{"text":"tư vấn chỗ ăn tốt nhất cho gia đình","label":"recommendation","group_id":"expanded_recommendation_063"}
+{"text":"tư vấn chỗ ăn tốt nhất cho đồng nghiệp","label":"recommendation","group_id":"expanded_recommendation_064"}
+{"text":"đề xuất nơi có món đồ Việt hợp khẩu vị vị thanh nhẹ","label":"recommendation","group_id":"expanded_recommendation_065"}
+{"text":"đề xuất nơi có món đồ nướng hợp khẩu vị ăn cay","label":"recommendation","group_id":"expanded_recommendation_066"}
+{"text":"đề xuất nơi có món món chay hợp khẩu vị đồ ít dầu mỡ","label":"recommendation","group_id":"expanded_recommendation_067"}
+{"text":"đề xuất nơi có món hải sản hợp khẩu vị khẩu vị đậm đà","label":"recommendation","group_id":"expanded_recommendation_068"}
+{"text":"chọn giúp một địa điểm yên tĩnh cho dịp hẹn hò","label":"recommendation","group_id":"expanded_recommendation_069"}
+{"text":"chọn giúp một địa điểm ấm cúng cho dịp sinh nhật","label":"recommendation","group_id":"expanded_recommendation_070"}
+{"text":"đánh giá Phở Thìn cùng Phở Lý Quốc Sư xem bên nào đáng tiền","label":"comparison","group_id":"expanded_comparison_061"}
+{"text":"đánh giá Xôi Yến cùng Xôi Bà Thảo xem bên nào đáng tiền","label":"comparison","group_id":"expanded_comparison_062"}
+{"text":"đánh giá Bún Chả Hương Liên cùng Bún Chả Đắc Kim xem bên nào đáng tiền","label":"comparison","group_id":"expanded_comparison_063"}
+{"text":"đánh giá Chả Cá Lã Vọng cùng Chả Cá Thăng Long xem bên nào đáng tiền","label":"comparison","group_id":"expanded_comparison_064"}
+{"text":"Phở Thìn với Phở Lý Quốc Sư, nơi nào hợp đi gia đình hơn","label":"comparison","group_id":"expanded_comparison_065"}
+{"text":"Xôi Yến với Xôi Bà Thảo, nơi nào hợp đi gia đình hơn","label":"comparison","group_id":"expanded_comparison_066"}
+{"text":"Bún Chả Hương Liên với Bún Chả Đắc Kim, nơi nào hợp đi gia đình hơn","label":"comparison","group_id":"expanded_comparison_067"}
+{"text":"Chả Cá Lã Vọng với Chả Cá Thăng Long, nơi nào hợp đi gia đình hơn","label":"comparison","group_id":"expanded_comparison_068"}
+{"text":"trải nghiệm tại Phở Thìn và Phở Lý Quốc Sư khác nhau thế nào","label":"comparison","group_id":"expanded_comparison_069"}
+{"text":"trải nghiệm tại Xôi Yến và Xôi Bà Thảo khác nhau thế nào","label":"comparison","group_id":"expanded_comparison_070"}
+{"text":"sắp lịch trải nghiệm ẩm thực tại Tây Hồ trong một buổi tối","label":"planning","group_id":"expanded_planning_061"}
+{"text":"phân bổ ngân sách cho hai người ghé ba quán","label":"planning","group_id":"expanded_planning_062"}
+{"text":"phân bổ ngân sách cho gia đình ghé bốn quán","label":"planning","group_id":"expanded_planning_063"}
+{"text":"phân bổ ngân sách cho nhóm bạn ghé năm quán","label":"planning","group_id":"expanded_planning_064"}
+{"text":"phân bổ ngân sách cho đồng nghiệp ghé hai quán","label":"planning","group_id":"expanded_planning_065"}
+{"text":"với một ngày, xếp lịch đi ăn nhiều địa điểm giúp mình","label":"planning","group_id":"expanded_planning_066"}
+{"text":"với cuối tuần, xếp lịch đi ăn nhiều địa điểm giúp mình","label":"planning","group_id":"expanded_planning_067"}
+{"text":"với hai ngày, xếp lịch đi ăn nhiều địa điểm giúp mình","label":"planning","group_id":"expanded_planning_068"}
+{"text":"với một buổi tối, xếp lịch đi ăn nhiều địa điểm giúp mình","label":"planning","group_id":"expanded_planning_069"}
+{"text":"lên kế hoạch dùng ngân sách hợp lý quanh Hoàn Kiếm","label":"planning","group_id":"expanded_planning_070"}
+{"text":"giải thích khái niệm SQL cho người mới","label":"out_of_scope","group_id":"expanded_out_of_scope_061"}
+{"text":"giải thích khái niệm React cho người mới","label":"out_of_scope","group_id":"expanded_out_of_scope_062"}
+{"text":"triệu chứng đau đầu có đáng lo không","label":"out_of_scope","group_id":"expanded_out_of_scope_063"}
+{"text":"triệu chứng mất ngủ có đáng lo không","label":"out_of_scope","group_id":"expanded_out_of_scope_064"}
+{"text":"triệu chứng đau lưng có đáng lo không","label":"out_of_scope","group_id":"expanded_out_of_scope_065"}
+{"text":"triệu chứng dị ứng có đáng lo không","label":"out_of_scope","group_id":"expanded_out_of_scope_066"}
+{"text":"kết quả trận đấu ở World Cup tối qua thế nào","label":"out_of_scope","group_id":"expanded_out_of_scope_067"}
+{"text":"kết quả trận đấu ở Champions League tối qua thế nào","label":"out_of_scope","group_id":"expanded_out_of_scope_068"}
+{"text":"kết quả trận đấu ở Ngoại hạng Anh tối qua thế nào","label":"out_of_scope","group_id":"expanded_out_of_scope_069"}
+{"text":"kết quả trận đấu ở NBA tối qua thế nào","label":"out_of_scope","group_id":"expanded_out_of_scope_070"}

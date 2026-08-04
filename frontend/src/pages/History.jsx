@@ -4,6 +4,9 @@ import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 import { ApiError, apiJson } from '../lib/api';
 
+const SESSION_PAGE_SIZE = 20;
+const MESSAGE_PAGE_SIZE = 100;
+
 const getSessions = (payload) => (
   Array.isArray(payload) ? payload : payload?.sessions || []
 );
@@ -44,9 +47,14 @@ export const History = () => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [loadingMoreSessions, setLoadingMoreSessions] = useState(false);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
+  const [hasMoreSessions, setHasMoreSessions] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [deletingSessionId, setDeletingSessionId] = useState(null);
   const [error, setError] = useState('');
   const [detailError, setDetailError] = useState('');
+  const [olderMessagesError, setOlderMessagesError] = useState('');
   const detailAbortRef = useRef(null);
   const { markUnauthenticated } = useAuth();
   const { clearSessionIfActive } = useChat();
@@ -68,8 +76,13 @@ export const History = () => {
       setError('');
 
       try {
-        const payload = await apiJson('/api/history', { signal: controller.signal });
-        setSessions(getSessions(payload));
+        const payload = await apiJson(
+          `/api/history?limit=${SESSION_PAGE_SIZE}`,
+          { signal: controller.signal },
+        );
+        const records = getSessions(payload);
+        setSessions(records);
+        setHasMoreSessions(records.length === SESSION_PAGE_SIZE);
       } catch (requestError) {
         if (requestError.name !== 'AbortError') {
           handleRequestError(requestError, setError);
@@ -87,6 +100,33 @@ export const History = () => {
     detailAbortRef.current?.abort();
   }, []);
 
+  const handleLoadMoreSessions = async () => {
+    const cursor = sessions.at(-1)?.id;
+    if (!cursor || loadingMoreSessions) return;
+
+    setLoadingMoreSessions(true);
+    setError('');
+
+    try {
+      const payload = await apiJson(
+        `/api/history?limit=${SESSION_PAGE_SIZE}&cursor=${cursor}`,
+      );
+      const records = getSessions(payload);
+      setSessions(previous => {
+        const existingIds = new Set(previous.map(session => session.id));
+        return [
+          ...previous,
+          ...records.filter(session => !existingIds.has(session.id)),
+        ];
+      });
+      setHasMoreSessions(records.length === SESSION_PAGE_SIZE);
+    } catch (requestError) {
+      handleRequestError(requestError, setError);
+    } finally {
+      setLoadingMoreSessions(false);
+    }
+  };
+
   const handleSelectSession = async (sessionId) => {
     detailAbortRef.current?.abort();
     const controller = new AbortController();
@@ -94,16 +134,24 @@ export const History = () => {
 
     setSelectedSessionId(sessionId);
     setMessages([]);
+    setHasMoreMessages(false);
     setDetailError('');
+    setOlderMessagesError('');
     setLoadingMessages(true);
+    setLoadingOlderMessages(false);
 
     try {
-      const payload = await apiJson(`/api/history/${sessionId}`, {
+      const payload = await apiJson(
+        `/api/history/${sessionId}?limit=${MESSAGE_PAGE_SIZE}`,
+        {
         signal: controller.signal,
-      });
+        },
+      );
 
       if (detailAbortRef.current === controller) {
-        setMessages(normalizeMessages(payload));
+        const records = normalizeMessages(payload);
+        setMessages(records);
+        setHasMoreMessages(records.length === MESSAGE_PAGE_SIZE);
       }
     } catch (requestError) {
       if (requestError.name !== 'AbortError' && detailAbortRef.current === controller) {
@@ -113,6 +161,48 @@ export const History = () => {
       if (detailAbortRef.current === controller) {
         detailAbortRef.current = null;
         setLoadingMessages(false);
+      }
+    }
+  };
+
+  const handleLoadOlderMessages = async () => {
+    const cursor = messages[0]?.position;
+    if (
+      !selectedSessionId
+      || cursor === undefined
+      || cursor === null
+      || loadingOlderMessages
+    ) {
+      return;
+    }
+
+    const sessionId = selectedSessionId;
+    const controller = new AbortController();
+    detailAbortRef.current = controller;
+    setLoadingOlderMessages(true);
+    setOlderMessagesError('');
+
+    try {
+      const payload = await apiJson(
+        `/api/history/${sessionId}?limit=${MESSAGE_PAGE_SIZE}&cursor=${cursor}`,
+        { signal: controller.signal },
+      );
+      const records = normalizeMessages(payload);
+      if (detailAbortRef.current === controller) {
+        setMessages(previous => [...records, ...previous]);
+        setHasMoreMessages(records.length === MESSAGE_PAGE_SIZE);
+      }
+    } catch (requestError) {
+      if (
+        requestError.name !== 'AbortError'
+        && detailAbortRef.current === controller
+      ) {
+        handleRequestError(requestError, setOlderMessagesError);
+      }
+    } finally {
+      if (detailAbortRef.current === controller) {
+        detailAbortRef.current = null;
+        setLoadingOlderMessages(false);
       }
     }
   };
@@ -134,7 +224,9 @@ export const History = () => {
         detailAbortRef.current = null;
         setSelectedSessionId(null);
         setMessages([]);
+        setHasMoreMessages(false);
         setDetailError('');
+        setOlderMessagesError('');
         setLoadingMessages(false);
       }
     } catch (requestError) {
@@ -200,6 +292,16 @@ export const History = () => {
                 </button>
               </div>
             ))}
+            {hasMoreSessions && (
+              <button
+                type="button"
+                onClick={handleLoadMoreSessions}
+                disabled={loadingMoreSessions}
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:border-red-300 disabled:opacity-60"
+              >
+                {loadingMoreSessions ? 'Đang tải...' : 'Tải thêm'}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -222,6 +324,19 @@ export const History = () => {
           <p className="text-sm text-slate-500">Phiên này chưa có tin nhắn.</p>
         ) : (
           <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+            {olderMessagesError && (
+              <p className="text-xs text-red-500">{olderMessagesError}</p>
+            )}
+            {hasMoreMessages && (
+              <button
+                type="button"
+                onClick={handleLoadOlderMessages}
+                disabled={loadingOlderMessages}
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:border-red-300 disabled:opacity-60"
+              >
+                {loadingOlderMessages ? 'Đang tải...' : 'Tải tin nhắn cũ hơn'}
+              </button>
+            )}
             {messages.map((message, index) => {
               const isUser = message.role === 'user';
               return (

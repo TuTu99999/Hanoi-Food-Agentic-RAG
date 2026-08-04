@@ -173,5 +173,705 @@
     "id": "router-out-005",
     "text": "giá vàng hiện tại bao nhiêu",
     "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-chitchat-001",
+    "text": "hey bạn, lâu rồi không gặp",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-002",
+    "text": "alo alo, lâu rồi không gặp",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-003",
+    "text": "xin chao, lâu rồi không gặp",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-004",
+    "text": "ê chào nhé, lâu rồi không gặp",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-005",
+    "text": "chúc trợ lý một ngày thật vui",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-006",
+    "text": "chúc trợ lý một tuần thật vui",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-007",
+    "text": "chúc trợ lý một buổi chiều thật vui",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-008",
+    "text": "chúc trợ lý một buổi tối thật vui",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-009",
+    "text": "cảm ơn nha, câu trả lời dễ hiểu lắm",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-010",
+    "text": "đa tạ, câu trả lời dễ hiểu lắm",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-011",
+    "text": "thank you, câu trả lời dễ hiểu lắm",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-012",
+    "text": "cam on m, câu trả lời dễ hiểu lắm",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-013",
+    "text": "mình đi đây, tạm biệt",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-014",
+    "text": "mình đi đây, hẹn gặp lại",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-015",
+    "text": "mình đi đây, bye nha",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-016",
+    "text": "mình đi đây, gặp sau nhé",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-017",
+    "text": "bạn vẫn đang nghe chứ",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-018",
+    "text": "hey bạn, chúc bạn một ngày bình an",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-019",
+    "text": "alo alo, chúc bạn một tuần bình an",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-chitchat-020",
+    "text": "xin chao, chúc bạn một buổi chiều bình an",
+    "expected_intent": "chitchat"
+  },
+  {
+    "id": "router-aug-entity_lookup-001",
+    "text": "mấy giờ Phở Bát Đàn bắt đầu bán",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-002",
+    "text": "mấy giờ Bánh Cuốn Bà Hoành bắt đầu bán",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-003",
+    "text": "mấy giờ Miến Lươn Đông Thịnh bắt đầu bán",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-004",
+    "text": "mấy giờ Bún Ốc Cô Huê bắt đầu bán",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-005",
+    "text": "xin vị trí cụ thể của quán Phở Bát Đàn",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-006",
+    "text": "xin vị trí cụ thể của quán Bánh Cuốn Bà Hoành",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-007",
+    "text": "xin vị trí cụ thể của quán Miến Lươn Đông Thịnh",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-008",
+    "text": "xin vị trí cụ thể của quán Bún Ốc Cô Huê",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-009",
+    "text": "ăn tại Phở Bát Đàn hết khoảng bao nhiêu tiền",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-010",
+    "text": "ăn tại Bánh Cuốn Bà Hoành hết khoảng bao nhiêu tiền",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-011",
+    "text": "ăn tại Miến Lươn Đông Thịnh hết khoảng bao nhiêu tiền",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-012",
+    "text": "ăn tại Bún Ốc Cô Huê hết khoảng bao nhiêu tiền",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-013",
+    "text": "Phở Bát Đàn có mở vào buổi tối không",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-014",
+    "text": "Bánh Cuốn Bà Hoành có mở vào buổi tối không",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-015",
+    "text": "Miến Lươn Đông Thịnh có mở vào buổi tối không",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-016",
+    "text": "Bún Ốc Cô Huê có mở vào buổi tối không",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-017",
+    "text": "quán Phở Bát Đàn chuyên bán món gì vậy",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-018",
+    "text": "quán Bánh Cuốn Bà Hoành chuyên bán món gì vậy",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-019",
+    "text": "quán Miến Lươn Đông Thịnh chuyên bán món gì vậy",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-entity_lookup-020",
+    "text": "quán Bún Ốc Cô Huê chuyên bán món gì vậy",
+    "expected_intent": "entity_lookup"
+  },
+  {
+    "id": "router-aug-food_search-001",
+    "text": "quanh Thanh Xuân tìm đâu ra bún riêu dưới 60k",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-002",
+    "text": "quanh Long Biên tìm đâu ra bánh cuốn dưới 40 nghìn",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-003",
+    "text": "quanh Nam Từ Liêm tìm đâu ra cơm rang dưới 70.000đ",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-004",
+    "text": "quanh Hà Đông tìm đâu ra gà nướng dưới 150k",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-005",
+    "text": "cho danh sách địa điểm bán bún riêu tại Thanh Xuân",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-006",
+    "text": "cho danh sách địa điểm bán bánh cuốn tại Long Biên",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-007",
+    "text": "cho danh sách địa điểm bán cơm rang tại Nam Từ Liêm",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-008",
+    "text": "cho danh sách địa điểm bán gà nướng tại Hà Đông",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-009",
+    "text": "cần quán ăn đêm ở khu Thanh Xuân",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-010",
+    "text": "cần quán ăn đêm ở khu Long Biên",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-011",
+    "text": "cần quán ăn đêm ở khu Nam Từ Liêm",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-012",
+    "text": "cần quán ăn đêm ở khu Hà Đông",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-013",
+    "text": "search giúp hàng bún riêu bình dân gần Thanh Xuân",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-014",
+    "text": "search giúp hàng bánh cuốn bình dân gần Long Biên",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-015",
+    "text": "search giúp hàng cơm rang bình dân gần Nam Từ Liêm",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-016",
+    "text": "search giúp hàng gà nướng bình dân gần Hà Đông",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-017",
+    "text": "có chỗ ăn nào ở Thanh Xuân hợp ngân sách 60k không",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-018",
+    "text": "có chỗ ăn nào ở Long Biên hợp ngân sách 40 nghìn không",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-019",
+    "text": "có chỗ ăn nào ở Nam Từ Liêm hợp ngân sách 70.000đ không",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-food_search-020",
+    "text": "có chỗ ăn nào ở Hà Đông hợp ngân sách 150k không",
+    "expected_intent": "food_search"
+  },
+  {
+    "id": "router-aug-recommendation-001",
+    "text": "chọn giúp nơi ăn thật chill cho hai vợ chồng",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-002",
+    "text": "chọn giúp nơi ăn thoải mái cho trẻ nhỏ",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-003",
+    "text": "chọn giúp nơi ăn ấm áp cho bố mẹ",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-004",
+    "text": "chọn giúp nơi ăn sang trọng cho đối tác",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-005",
+    "text": "theo bạn nên thử quán nào nếu thích ăn nhạt",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-006",
+    "text": "theo bạn nên thử quán nào nếu thích mê đồ ngọt",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-007",
+    "text": "theo bạn nên thử quán nào nếu thích không ăn cay",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-008",
+    "text": "theo bạn nên thử quán nào nếu thích thích món truyền thống",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-009",
+    "text": "gợi ý địa điểm có không gian có view đẹp",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-010",
+    "text": "gợi ý địa điểm có không gian rộng rãi",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-011",
+    "text": "gợi ý địa điểm có không gian riêng tư",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-012",
+    "text": "gợi ý địa điểm có không gian trang nhã",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-013",
+    "text": "mình muốn được tư vấn chỗ ăn cho dịp cầu hôn",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-014",
+    "text": "mình muốn được tư vấn chỗ ăn cho dịp họp lớp",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-015",
+    "text": "mình muốn được tư vấn chỗ ăn cho dịp mừng thọ",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-016",
+    "text": "mình muốn được tư vấn chỗ ăn cho dịp ký hợp đồng",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-017",
+    "text": "đề xuất món phù hợp với người ăn nhạt",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-018",
+    "text": "đề xuất món phù hợp với người mê đồ ngọt",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-019",
+    "text": "đề xuất món phù hợp với người không ăn cay",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-recommendation-020",
+    "text": "đề xuất món phù hợp với người thích món truyền thống",
+    "expected_intent": "recommendation"
+  },
+  {
+    "id": "router-aug-comparison-001",
+    "text": "đặt Phở Bát Đàn cạnh Phở Sướng thì nơi nào đáng tiền hơn",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-002",
+    "text": "đặt Bánh Cuốn Thanh Vân cạnh Bánh Cuốn Bà Hoành thì nơi nào đáng tiền hơn",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-003",
+    "text": "đặt Bún Ốc Cô Huê cạnh Bún Ốc Giang thì nơi nào đáng tiền hơn",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-004",
+    "text": "đặt Miến Lươn Đông Thịnh cạnh Miến Lươn Chân Cầm thì nơi nào đáng tiền hơn",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-005",
+    "text": "giữa Phở Bát Đàn và Phở Sướng, quán nào đóng cửa muộn hơn",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-006",
+    "text": "giữa Bánh Cuốn Thanh Vân và Bánh Cuốn Bà Hoành, quán nào đóng cửa muộn hơn",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-007",
+    "text": "giữa Bún Ốc Cô Huê và Bún Ốc Giang, quán nào đóng cửa muộn hơn",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-008",
+    "text": "giữa Miến Lươn Đông Thịnh và Miến Lươn Chân Cầm, quán nào đóng cửa muộn hơn",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-009",
+    "text": "so sánh thực đơn của Phở Bát Đàn cùng Phở Sướng",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-010",
+    "text": "so sánh thực đơn của Bánh Cuốn Thanh Vân cùng Bánh Cuốn Bà Hoành",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-011",
+    "text": "so sánh thực đơn của Bún Ốc Cô Huê cùng Bún Ốc Giang",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-012",
+    "text": "so sánh thực đơn của Miến Lươn Đông Thịnh cùng Miến Lươn Chân Cầm",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-013",
+    "text": "Phở Bát Đàn với Phở Sướng bên nào hợp gia đình hơn",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-014",
+    "text": "Bánh Cuốn Thanh Vân với Bánh Cuốn Bà Hoành bên nào hợp gia đình hơn",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-015",
+    "text": "Bún Ốc Cô Huê với Bún Ốc Giang bên nào hợp gia đình hơn",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-016",
+    "text": "Miến Lươn Đông Thịnh với Miến Lươn Chân Cầm bên nào hợp gia đình hơn",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-017",
+    "text": "phân biệt trải nghiệm ăn tại Phở Bát Đàn và Phở Sướng",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-018",
+    "text": "phân biệt trải nghiệm ăn tại Bánh Cuốn Thanh Vân và Bánh Cuốn Bà Hoành",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-019",
+    "text": "phân biệt trải nghiệm ăn tại Bún Ốc Cô Huê và Bún Ốc Giang",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-comparison-020",
+    "text": "phân biệt trải nghiệm ăn tại Miến Lươn Đông Thịnh và Miến Lươn Chân Cầm",
+    "expected_intent": "comparison"
+  },
+  {
+    "id": "router-aug-planning-001",
+    "text": "xây lịch ăn nửa ngày xuất phát từ Cầu Giấy",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-002",
+    "text": "xây lịch ăn ba ngày xuất phát từ Hai Bà Trưng",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-003",
+    "text": "xây lịch ăn một buổi sáng xuất phát từ Long Biên",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-004",
+    "text": "xây lịch ăn tối thứ bảy xuất phát từ Thanh Xuân",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-005",
+    "text": "chia giúp các bữa để thử đủ bốn món",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-006",
+    "text": "chia giúp các bữa để thử đủ sáu món",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-007",
+    "text": "chia giúp các bữa để thử đủ ba món",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-008",
+    "text": "chia giúp các bữa để thử đủ năm món",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-009",
+    "text": "tổ chức food tour hợp lý cho ba người",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-010",
+    "text": "tổ chức food tour hợp lý cho khách nước ngoài",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-011",
+    "text": "tổ chức food tour hợp lý cho một gia đình",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-012",
+    "text": "tổ chức food tour hợp lý cho nhóm sáu bạn",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-013",
+    "text": "lên tuyến đường ghé nhiều hàng ăn mà không đi vòng",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-014",
+    "text": "sắp lịch ăn uống với ngân sách 500k trong nửa ngày",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-015",
+    "text": "sắp lịch ăn uống với ngân sách hai triệu trong ba ngày",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-016",
+    "text": "sắp lịch ăn uống với ngân sách 800 nghìn trong một buổi sáng",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-017",
+    "text": "sắp lịch ăn uống với ngân sách 1,5 triệu trong tối thứ bảy",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-018",
+    "text": "thiết kế chuyến khám phá món ngon cho ba người từ Cầu Giấy",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-019",
+    "text": "thiết kế chuyến khám phá món ngon cho khách nước ngoài từ Hai Bà Trưng",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-planning-020",
+    "text": "thiết kế chuyến khám phá món ngon cho một gia đình từ Long Biên",
+    "expected_intent": "planning"
+  },
+  {
+    "id": "router-aug-out_of_scope-001",
+    "text": "ai đang là tổng thống Mỹ hiện nay",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-002",
+    "text": "ai đang là huấn luyện viên tuyển Việt Nam hiện nay",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-003",
+    "text": "ai đang là CEO của Microsoft hiện nay",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-004",
+    "text": "ai đang là thủ tướng Nhật Bản hiện nay",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-005",
+    "text": "giúp mình sửa lỗi trong code Java",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-006",
+    "text": "giúp mình sửa lỗi trong code C++",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-007",
+    "text": "giúp mình sửa lỗi trong code Node.js",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-008",
+    "text": "giúp mình sửa lỗi trong code FastAPI",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-009",
+    "text": "hôm nay Bitcoin tăng hay giảm",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-010",
+    "text": "hôm nay giá vàng tăng hay giảm",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-011",
+    "text": "hôm nay VN-Index tăng hay giảm",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-012",
+    "text": "hôm nay Ethereum tăng hay giảm",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-013",
+    "text": "triệu chứng sốt cao có nguy hiểm không",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-014",
+    "text": "triệu chứng khó thở có nguy hiểm không",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-015",
+    "text": "triệu chứng đau ngực có nguy hiểm không",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-016",
+    "text": "triệu chứng chóng mặt có nguy hiểm không",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-017",
+    "text": "đặt phòng khách sạn ở Huế giúp mình",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-018",
+    "text": "đặt phòng khách sạn ở Nha Trang giúp mình",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-019",
+    "text": "đặt phòng khách sạn ở Đà Lạt giúp mình",
+    "expected_intent": "out_of_scope"
+  },
+  {
+    "id": "router-aug-out_of_scope-020",
+    "text": "đặt phòng khách sạn ở Phú Quốc giúp mình",
+    "expected_intent": "out_of_scope"
   }
 ]
