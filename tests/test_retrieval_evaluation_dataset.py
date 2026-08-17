@@ -23,13 +23,13 @@ CONVERSATION_CASES_PATH = (
 
 
 class RetrievalEvaluationDatasetTests(unittest.TestCase):
-    def test_committed_retrieval_cases_match_curated_dataset(self):
+    def test_committed_retrieval_cases_match_catalog_dataset(self):
         committed_cases = load_cases(RETRIEVAL_CASES_PATH)
         expected_cases = build_cases()
 
         validate_cases(committed_cases)
         self.assertEqual(committed_cases, expected_cases)
-        self.assertEqual(len(committed_cases), 120)
+        self.assertEqual(len(committed_cases), 80)
         self.assertEqual(
             Counter(case["group"] for case in committed_cases),
             Counter(EXPECTED_GROUP_COUNTS),

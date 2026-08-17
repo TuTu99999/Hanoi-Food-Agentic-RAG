@@ -3,6 +3,7 @@ import { MessageSquare, Calendar, Trash2, Loader2, MessageCircle } from 'lucide-
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 import { ApiError, apiJson } from '../lib/api';
+import { AssistantMarkdown } from '../components/ChatMessage';
 
 const SESSION_PAGE_SIZE = 20;
 const MESSAGE_PAGE_SIZE = 100;
@@ -352,7 +353,13 @@ export const History = () => {
                         }`
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{message.content}</p>
+                  {isUser ? (
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  ) : (
+                    <div className="prose dark:prose-invert max-w-none text-sm">
+                      <AssistantMarkdown content={message.content} />
+                    </div>
+                  )}
                 </div>
               );
             })}

@@ -6,15 +6,17 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from embedding.geo import valid_coordinates
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(PROJECT_ROOT / ".env")
 
-DEFAULT_VECTOR_FILE = PROJECT_ROOT / "data" / "final" / "hanoi_food_v2.json"
-DEFAULT_COLLECTION = "hanoi_food_v2"
+DEFAULT_VECTOR_FILE = PROJECT_ROOT / "data" / "final" / "hanoi_food_osm_v1.json"
+DEFAULT_COLLECTION = "hanoi_food_osm_v2"
 DEFAULT_ALIAS = "hanoi_food_current"
-DEFAULT_EXPECTED_POINTS = 773
-DEFAULT_EXPECTED_PARENTS = 418
+DEFAULT_EXPECTED_POINTS = 820
+DEFAULT_EXPECTED_PARENTS = 792
 POINT_ID_NAMESPACE = uuid.UUID("83eed46d-713b-4d5d-a8e8-caf7b61a98c8")
 
 REQUIRED_PAYLOAD_FIELDS = (
@@ -65,6 +67,7 @@ PAYLOAD_INDEXES = (
     ("price_min", "integer"),
     ("price_max", "integer"),
     ("verification_status", "keyword"),
+    ("location", "geo"),
 )
 
 
@@ -152,7 +155,13 @@ def validate_vector_rows(
 
 
 def build_payload(row):
-    return {key: value for key, value in row.items() if key != "vector"}
+    payload = {key: value for key, value in row.items() if key != "vector"}
+    if valid_coordinates(row.get("latitude"), row.get("longitude")):
+        payload["location"] = {
+            "lat": float(row["latitude"]),
+            "lon": float(row["longitude"]),
+        }
+    return payload
 
 
 def build_points(rows):
@@ -172,6 +181,7 @@ def create_payload_indexes(client, collection_name):
     schema_types = {
         "keyword": PayloadSchemaType.KEYWORD,
         "integer": PayloadSchemaType.INTEGER,
+        "geo": PayloadSchemaType.GEO,
     }
     for field_name, schema_name in PAYLOAD_INDEXES:
         client.create_payload_index(
@@ -199,7 +209,7 @@ def validate_uploaded_collection(client, collection_name, rows):
     records = client.retrieve(
         collection_name=collection_name,
         ids=sample_ids,
-        with_payload=["chunk_id", "knowledge_version"],
+        with_payload=["chunk_id", "knowledge_version", "location"],
         with_vectors=False,
     )
     returned_chunk_ids = {
@@ -220,6 +230,21 @@ def validate_uploaded_collection(client, collection_name, rows):
         raise RuntimeError(
             "Upload validation failed: knowledge versions do not match"
         )
+
+    records_by_chunk_id = {
+        record.payload.get("chunk_id"): record
+        for record in records
+        if record.payload
+    }
+    for row in sample_rows:
+        if not valid_coordinates(row.get("latitude"), row.get("longitude")):
+            continue
+        record = records_by_chunk_id.get(row["chunk_id"])
+        location = record.payload.get("location") if record else None
+        if not isinstance(location, dict):
+            raise RuntimeError(
+                "Upload validation failed: geo payload is missing"
+            )
 
 
 def switch_alias(client, collection_name, alias_name):

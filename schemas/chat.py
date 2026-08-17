@@ -4,6 +4,12 @@ from datetime import datetime
 from uuid import UUID
 
 
+class NearbySearch(BaseModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    radius_km: float = Field(default=3, ge=0.2, le=20)
+
+
 class ChatRequest(BaseModel):
     session_id: Optional[int] = Field(default=None, gt=0)
     client_request_id: Optional[str] = Field(
@@ -13,6 +19,7 @@ class ChatRequest(BaseModel):
     )
     question: str = Field(min_length=1, max_length=2000)
     district: Optional[str] = Field(default="Tất cả", max_length=100)
+    nearby: Optional[NearbySearch] = None
 
     @field_validator("client_request_id")
     @classmethod

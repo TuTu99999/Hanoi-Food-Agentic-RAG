@@ -18,7 +18,7 @@ MODEL_NAME = os.getenv(
 DEFAULT_INPUTS = (
     PROJECT_ROOT / "data" / "processed" / "food_chunks.json",
 )
-DEFAULT_OUTPUT = PROJECT_ROOT / "data" / "final" / "hanoi_food_v2.json"
+DEFAULT_OUTPUT = PROJECT_ROOT / "data" / "final" / "hanoi_food_osm_v1.json"
 
 REQUIRED_FIELDS = (
     "chunk_id",

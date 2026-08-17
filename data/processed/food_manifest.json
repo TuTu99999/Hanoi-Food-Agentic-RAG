@@ -1,12 +1,12 @@
 {
-  "schema_version": 1,
-  "knowledge_version": "food-45902dc2724f",
+  "schema_version": 2,
+  "knowledge_version": "food-dbba6314ac89",
   "domain": "food",
-  "dataset_sha256": "6f60f01d506a0e92e4d57e28539f71b10e77076d917fb7bb22db6ce29a0eb025",
-  "lexical_artifact_sha256": "126f3b3879f649b853079562205c1923133532e4a720b4a39072e7d04e49f05b",
-  "source_record_count": 420,
-  "indexed_parent_count": 418,
-  "chunk_count": 773,
+  "dataset_sha256": "282d226fa852a007a95ddd58a156e1d85a79123de18bd8eac8cf9003fb6aa1f6",
+  "lexical_artifact_sha256": "ca94e6cda543b13de0ef62bb88c27996caeff50475cca3ae86a9fe83030b7163",
+  "source_record_count": 792,
+  "indexed_parent_count": 792,
+  "chunk_count": 820,
   "chunking": {
     "max_tokens": 120,
     "overlap_tokens": 15

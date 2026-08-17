@@ -1,9 +1,11 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Bot, User } from 'lucide-react';
+import { Bot, Navigation, User } from 'lucide-react';
 import {
   isExternalMarkdownLink,
+  isGoogleMapsDirectionsLink,
+  placeDirectionsNextToVenues,
   sanitizeMarkdownImage,
   sanitizeMarkdownLink,
 } from '../lib/markdown';
@@ -15,13 +17,19 @@ const MarkdownLink = ({ href, children }) => {
   }
 
   const external = isExternalMarkdownLink(safeHref);
+  const isDirections = isGoogleMapsDirectionsLink(safeHref);
   return (
     <a
       href={safeHref}
       rel={external ? 'noopener noreferrer nofollow' : undefined}
       target={external ? '_blank' : undefined}
+      className={isDirections
+        ? 'not-prose inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white no-underline hover:bg-red-700'
+        : undefined}
+      title={isDirections ? 'Mở Google Maps để chỉ đường từ vị trí hiện tại' : undefined}
     >
-      {children}
+      {isDirections && <Navigation size={14} aria-hidden="true" />}
+      {isDirections ? 'Chỉ đường trên Google Maps' : children}
     </a>
   );
 };
@@ -37,7 +45,9 @@ const MarkdownImage = ({ src, alt }) => {
       src={safeSrc}
       alt={alt || ''}
       loading="lazy"
+      decoding="async"
       referrerPolicy="no-referrer"
+      onError={(event) => { event.currentTarget.hidden = true; }}
     />
   );
 };
@@ -46,6 +56,15 @@ const markdownComponents = {
   a: MarkdownLink,
   img: MarkdownImage,
 };
+
+export const AssistantMarkdown = ({ content }) => (
+  <ReactMarkdown
+    components={markdownComponents}
+    remarkPlugins={[remarkGfm]}
+  >
+    {placeDirectionsNextToVenues(content)}
+  </ReactMarkdown>
+);
 
 export const ChatMessage = ({ message }) => {
   const isUser = message.role === 'user';
@@ -68,12 +87,7 @@ export const ChatMessage = ({ message }) => {
           <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
         ) : (
           <div className="prose dark:prose-invert max-w-none text-sm leading-relaxed">
-            <ReactMarkdown
-              components={markdownComponents}
-              remarkPlugins={[remarkGfm]}
-            >
-              {message.content}
-            </ReactMarkdown>
+            <AssistantMarkdown content={message.content} />
           </div>
         )}
         {hasError && (

@@ -9,6 +9,7 @@ from embedding.catalog_schema import (
     parse_opening_hours,
     parse_price_range,
 )
+from embedding.geo import is_within_radius
 from embedding.text_utils import (
     field_match_score,
     lexical_terms,
@@ -17,6 +18,18 @@ from embedding.text_utils import (
 
 
 EXACT_MATCH_THRESHOLD = 0.84
+GENERIC_QUERY_TERMS = {
+    "am",
+    "an",
+    "chi",
+    "dia",
+    "do",
+    "hang",
+    "mon",
+    "nha",
+    "quan",
+    "thuc",
+}
 
 
 class LexicalIndex:
@@ -56,6 +69,9 @@ class LexicalIndex:
         price_min: int | None = None,
         price_max: int | None = None,
         open_at: str | None = None,
+        user_latitude: float | None = None,
+        user_longitude: float | None = None,
+        radius_km: float | None = None,
     ) -> int:
         return sum(
             1
@@ -67,6 +83,9 @@ class LexicalIndex:
                 price_min=price_min,
                 price_max=price_max,
                 open_at=open_at,
+                user_latitude=user_latitude,
+                user_longitude=user_longitude,
+                radius_km=radius_km,
             )
         )
 
@@ -78,6 +97,9 @@ class LexicalIndex:
         price_min: int | None = None,
         price_max: int | None = None,
         open_at: str | None = None,
+        user_latitude: float | None = None,
+        user_longitude: float | None = None,
+        radius_km: float | None = None,
         limit: int = 10,
     ) -> list[dict[str, Any]]:
         matches = []
@@ -89,6 +111,9 @@ class LexicalIndex:
                 price_min=price_min,
                 price_max=price_max,
                 open_at=open_at,
+                user_latitude=user_latitude,
+                user_longitude=user_longitude,
+                radius_km=radius_km,
             ):
                 continue
 
@@ -119,6 +144,9 @@ class LexicalIndex:
         price_min: int | None = None,
         price_max: int | None = None,
         open_at: str | None = None,
+        user_latitude: float | None = None,
+        user_longitude: float | None = None,
+        radius_km: float | None = None,
         limit: int = 20,
     ) -> list[dict[str, Any]]:
         query_terms = lexical_terms(query)
@@ -128,8 +156,12 @@ class LexicalIndex:
         query_unigrams = {
             term
             for term in query_terms
-            if "_" not in term
+            if "_" not in term and term not in GENERIC_QUERY_TERMS
         }
+        if not query_unigrams:
+            query_unigrams = {
+                term for term in query_terms if "_" not in term
+            }
         results = []
         for index, document in enumerate(self.documents):
             if not self._matches_filters(
@@ -139,6 +171,9 @@ class LexicalIndex:
                 price_min=price_min,
                 price_max=price_max,
                 open_at=open_at,
+                user_latitude=user_latitude,
+                user_longitude=user_longitude,
+                radius_km=radius_km,
             ):
                 continue
 
@@ -219,6 +254,16 @@ class LexicalIndex:
                     for tag in row.get("tags", [])
                     if str(tag).strip()
                 ]
+                aliases = [
+                    str(alias).strip()
+                    for alias in (row.get("aliases") or [])
+                    if str(alias).strip()
+                ]
+                cuisines = [
+                    str(cuisine).strip()
+                    for cuisine in (row.get("cuisines") or [])
+                    if str(cuisine).strip()
+                ]
                 price_data = parse_price_range(row.get("price_range"))
                 opening_data = parse_opening_hours(row.get("opening_hours"))
                 document = {
@@ -290,11 +335,34 @@ class LexicalIndex:
                         row.get("tags_normalized")
                         or [normalize_text(tag) for tag in tags]
                     ),
+                    "aliases": aliases,
+                    "aliases_normalized": (
+                        row.get("aliases_normalized")
+                        or [normalize_text(alias) for alias in aliases]
+                    ),
+                    "cuisines": cuisines,
+                    "cuisines_normalized": (
+                        row.get("cuisines_normalized")
+                        or [normalize_text(cuisine) for cuisine in cuisines]
+                    ),
+                    "district_source": row.get("district_source"),
+                    "address_source": row.get("address_source"),
+                    "latitude": row.get("latitude"),
+                    "longitude": row.get("longitude"),
+                    "phone": row.get("phone"),
+                    "website": row.get("website"),
+                    "image_url": row.get("image_url"),
+                    "image_source_url": row.get("image_source_url"),
+                    "image_license": row.get("image_license"),
+                    "image_attribution": row.get("image_attribution"),
+                    "image_kind": row.get("image_kind"),
                     "source_name": row.get("source_name"),
                     "source_url": row.get("source_url"),
+                    "source_id": row.get("source_id"),
                     "retrieved_at": row.get("retrieved_at"),
                     "last_verified_at": row.get("last_verified_at"),
                     "license": row.get("license"),
+                    "license_url": row.get("license_url"),
                     "verification_status": row.get(
                         "verification_status",
                         "unknown",
@@ -345,6 +413,8 @@ class LexicalIndex:
             [
                 document["district"],
                 document["sub_category"],
+                *document.get("aliases", []),
+                *document.get("cuisines", []),
                 *document["tags"],
             ]
         )
@@ -421,6 +491,9 @@ class LexicalIndex:
         price_min: int | None,
         price_max: int | None,
         open_at: str | None,
+        user_latitude: float | None,
+        user_longitude: float | None,
+        radius_km: float | None,
     ) -> bool:
         normalized_district = normalize_text(district)
         if (
@@ -466,6 +539,15 @@ class LexicalIndex:
         if open_at and not is_open_at(
             document.get("opening_intervals"),
             open_at,
+        ):
+            return False
+
+        if user_latitude is not None and not is_within_radius(
+            document.get("latitude"),
+            document.get("longitude"),
+            user_latitude,
+            user_longitude,
+            radius_km,
         ):
             return False
 

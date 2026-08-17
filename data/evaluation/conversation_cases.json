@@ -1,72 +1,57 @@
 [
   {
-    "id": "conversation-budget-direction-001",
-    "scenario": "Người dùng tìm phở bò tại Cầu Giấy và đổi chiều điều kiện giá trong câu hỏi tiếp theo.",
-    "expected_outcome": "Lượt đầu chỉ dùng dữ liệu đáp ứng mức giá 50.000đ đổ về hoặc báo không có. Lượt sau phải hiểu 'đổ lên' là đổi sang mức giá từ 50.000đ trở lên, vẫn giữ món phở bò và quận Cầu Giấy, không bịa quán ngoài retrieval context.",
+    "id": "conversation-unknown-price-001",
+    "scenario": "Người dùng hỏi một địa điểm OSM thật kèm ngân sách nhưng nguồn không có giá.",
+    "expected_outcome": "Lượt đầu phải nói rõ không có dữ liệu giá, không tự bịa mức giá. Lượt sau bỏ điều kiện giá và tiếp tục dùng đúng Bánh cuốn Gia An tại Cầu Giấy.",
     "turns": [
       {
-        "user_input": "Cho tôi quán phở bò ở quận Cầu Giấy, giá 50k đổ về.",
+        "user_input": "Bánh cuốn Gia An ở Cầu Giấy có dưới 50k không?",
         "district": "Cầu Giấy"
       },
       {
-        "user_input": "Vậy thì tìm loại 50k đổ lên đi.",
+        "user_input": "Bỏ điều kiện giá, cho tôi địa chỉ quán đó.",
         "district": "Cầu Giấy"
       }
     ]
   },
   {
     "id": "conversation-district-retention-002",
-    "scenario": "Người dùng hỏi quán theo quận rồi hỏi tiếp về giờ mở cửa mà không nhắc lại quận.",
-    "expected_outcome": "Trợ lý phải hiểu lượt sau đang nói về quán từ lượt trước, giữ đúng quận và chỉ trả giờ mở cửa có trong retrieval context.",
+    "scenario": "Người dùng hỏi quán theo quận rồi hỏi tiếp giờ mở cửa mà không nhắc lại tên.",
+    "expected_outcome": "Lượt sau vẫn tham chiếu Bánh cuốn Gia An tại Cầu Giấy và chỉ dùng giờ mở cửa từ OSM trong retrieval context.",
     "turns": [
       {
-        "user_input": "Cho tôi thông tin Cà phê Giảng ở Hoàn Kiếm.",
-        "district": "Hoàn Kiếm"
+        "user_input": "Cho tôi thông tin Bánh cuốn Gia An ở Cầu Giấy.",
+        "district": "Cầu Giấy"
       },
       {
         "user_input": "Quán đó mở cửa tới mấy giờ?",
-        "district": "Hoàn Kiếm"
-      }
-    ]
-  },
-  {
-    "id": "conversation-price-retention-003",
-    "scenario": "Người dùng đặt quận và ngân sách rồi hỏi tiếp về giờ mở cửa.",
-    "expected_outcome": "Lượt sau phải giữ món, quận và mức giá dưới 200.000đ; chỉ trả quán còn mở lúc 20:00 từ retrieval context.",
-    "turns": [
-      {
-        "user_input": "Tìm pizza ở Tây Hồ dưới 200k.",
-        "district": "Tây Hồ"
-      },
-      {
-        "user_input": "Quán đó còn mở lúc 20h không?",
-        "district": "Tây Hồ"
-      }
-    ]
-  },
-  {
-    "id": "conversation-district-switch-004",
-    "scenario": "Người dùng giữ loại món nhưng chuyển sang quận khác.",
-    "expected_outcome": "Lượt hai phải tìm sushi tại Cầu Giấy, không giữ hard filter Tây Hồ từ lượt trước.",
-    "turns": [
-      {
-        "user_input": "Tìm sushi ở Tây Hồ.",
-        "district": "Tây Hồ"
-      },
-      {
-        "user_input": "Còn ở Cầu Giấy thì sao?",
         "district": "Cầu Giấy"
       }
     ]
   },
   {
-    "id": "conversation-topic-switch-005",
-    "scenario": "Người dùng đổi từ ẩm thực sang một chủ đề ngoài phạm vi.",
-    "expected_outcome": "Lượt hai phải được nhận diện là ngoài phạm vi; không nối câu hỏi về laptop với truy vấn quán phở và không bịa dữ liệu.",
+    "id": "conversation-district-switch-003",
+    "scenario": "Người dùng giữ nhu cầu pizza nhưng chuyển sang quận khác.",
+    "expected_outcome": "Lượt hai phải thay hard filter Cầu Giấy bằng Ba Đình, không trộn các chi nhánh Pizza Hut ở hai quận.",
     "turns": [
       {
-        "user_input": "Tìm quán phở ở Hoàn Kiếm.",
-        "district": "Hoàn Kiếm"
+        "user_input": "Tìm Pizza Hut ở Cầu Giấy.",
+        "district": "Cầu Giấy"
+      },
+      {
+        "user_input": "Còn chi nhánh ở Ba Đình thì sao?",
+        "district": "Ba Đình"
+      }
+    ]
+  },
+  {
+    "id": "conversation-topic-switch-004",
+    "scenario": "Người dùng đổi từ ẩm thực sang chủ đề ngoài phạm vi.",
+    "expected_outcome": "Lượt hai phải được nhận diện là ngoài phạm vi và không nối câu hỏi laptop với dữ liệu quán ăn.",
+    "turns": [
+      {
+        "user_input": "Tìm Minh Sushi ở Cầu Giấy.",
+        "district": "Cầu Giấy"
       },
       {
         "user_input": "Tư vấn laptop gaming cho tôi."
@@ -74,12 +59,12 @@
     ]
   },
   {
-    "id": "conversation-long-reference-006",
-    "scenario": "Người dùng hỏi ba lượt liên tiếp về cùng một quán bằng đại từ.",
-    "expected_outcome": "Cả giờ mở cửa và giá ở lượt hai, ba phải tiếp tục tham chiếu đúng Trill Rooftop Cafe Cầu Giấy; không chuyển sang quán khác.",
+    "id": "conversation-long-reference-005",
+    "scenario": "Người dùng hỏi ba lượt về cùng một quán bằng đại từ.",
+    "expected_outcome": "Địa chỉ, giờ mở cửa và số điện thoại phải tiếp tục tham chiếu đúng Aventus Coffee Trần Thái Tông; không chuyển sang quán khác.",
     "turns": [
       {
-        "user_input": "Cho tôi thông tin Trill Rooftop Cafe ở Cầu Giấy.",
+        "user_input": "Cho tôi thông tin Aventus Coffee Trần Thái Tông.",
         "district": "Cầu Giấy"
       },
       {
@@ -87,67 +72,81 @@
         "district": "Cầu Giấy"
       },
       {
-        "user_input": "Giá bao nhiêu?",
+        "user_input": "Số điện thoại là gì?",
         "district": "Cầu Giấy"
       }
     ]
   },
   {
-    "id": "conversation-ambiguous-entity-007",
-    "scenario": "Hai record tại Tây Hồ có tên Maison de Tet Decor và người dùng bổ sung thuộc tính để làm rõ.",
-    "expected_outcome": "Hệ thống phải hỏi làm rõ khi tên còn mơ hồ; sau khi người dùng nhắc brunch thì ưu tiên record phù hợp, không trộn field của hai entity.",
+    "id": "conversation-ambiguous-entity-006",
+    "scenario": "Tên Chops xuất hiện tại nhiều quận và người dùng bổ sung địa bàn để làm rõ.",
+    "expected_outcome": "Lượt đầu không được trộn các chi nhánh Chops. Sau khi người dùng nêu Tây Hồ, chỉ dùng record Chops tại Tây Hồ.",
     "turns": [
       {
-        "user_input": "Cho tôi thông tin Maison de Tet Decor.",
-        "district": "Tây Hồ"
+        "user_input": "Cho tôi thông tin quán Chops."
       },
       {
-        "user_input": "Tôi muốn chỗ có brunch.",
+        "user_input": "Tôi muốn chi nhánh ở Tây Hồ.",
         "district": "Tây Hồ"
       }
     ]
   },
   {
-    "id": "conversation-relax-district-008",
-    "scenario": "Lượt đầu không có kết quả vì quận ngoài độ phủ, sau đó người dùng đổi sang quận có dữ liệu.",
-    "expected_outcome": "Lượt đầu phải no-answer. Lượt hai giữ nhu cầu sushi nhưng thay hard filter sang Tây Hồ và chỉ dùng dữ liệu retrieval mới.",
+    "id": "conversation-relax-district-007",
+    "scenario": "Lượt đầu hỏi quận không có dữ liệu, sau đó đổi sang quận có dữ liệu.",
+    "expected_outcome": "Lượt đầu phải no-answer. Lượt hai thay filter sang Cầu Giấy và chỉ dùng record Minh Sushi từ retrieval mới.",
     "turns": [
       {
         "user_input": "Tìm sushi ở Ba Vì.",
         "district": "Ba Vì"
       },
       {
-        "user_input": "Vậy tìm ở Tây Hồ đi.",
-        "district": "Tây Hồ"
-      }
-    ]
-  },
-  {
-    "id": "conversation-clear-budget-009",
-    "scenario": "Người dùng chủ động bỏ giới hạn giá và thay đổi nhu cầu.",
-    "expected_outcome": "Lượt hai không được giữ ngân sách 50.000đ; phải tìm rooftop tại Cầu Giấy theo constraint mới.",
-    "turns": [
-      {
-        "user_input": "Tìm cafe ở Cầu Giấy dưới 50k.",
-        "district": "Cầu Giấy"
-      },
-      {
-        "user_input": "Bỏ giới hạn giá, tìm rooftop ở Cầu Giấy.",
+        "user_input": "Vậy tìm Minh Sushi ở Cầu Giấy đi.",
         "district": "Cầu Giấy"
       }
     ]
   },
   {
-    "id": "conversation-comparison-reference-010",
-    "scenario": "Người dùng hỏi một quán rồi yêu cầu so sánh với quán thứ hai.",
-    "expected_outcome": "Câu trả lời so sánh chỉ được dùng field của Gác Trịnh Cafe và Trill Rooftop Cafe Cầu Giấy, không lẫn entity khác.",
+    "id": "conversation-missing-image-008",
+    "scenario": "Nguồn OSM không có ảnh hợp lệ cho địa điểm được hỏi.",
+    "expected_outcome": "Trợ lý có thể trả thông tin Cà Phê Ashtray nhưng không được tự tạo URL ảnh hoặc gọi ảnh địa điểm là ảnh món ăn.",
     "turns": [
       {
-        "user_input": "Cho tôi thông tin Gác Trịnh Cafe.",
+        "user_input": "Cho tôi thông tin Cà Phê Ashtray ở Cầu Giấy.",
         "district": "Cầu Giấy"
       },
       {
-        "user_input": "So với Trill Rooftop Cafe Cầu Giấy thì thế nào?",
+        "user_input": "Có ảnh của quán không?",
+        "district": "Cầu Giấy"
+      }
+    ]
+  },
+  {
+    "id": "conversation-comparison-009",
+    "scenario": "Người dùng yêu cầu so sánh hai quán có dữ liệu OSM thật.",
+    "expected_outcome": "So sánh chỉ dùng field của Cà Phê Ashtray và Cà Phê Kafa tại Cầu Giấy; giá thiếu phải được nói là chưa có dữ liệu.",
+    "turns": [
+      {
+        "user_input": "Cho tôi thông tin Cà Phê Ashtray.",
+        "district": "Cầu Giấy"
+      },
+      {
+        "user_input": "So với Cà Phê Kafa ở Cầu Giấy thì thế nào?",
+        "district": "Cầu Giấy"
+      }
+    ]
+  },
+  {
+    "id": "conversation-provenance-010",
+    "scenario": "Người dùng hỏi nguồn và độ tin cậy của dữ liệu địa điểm.",
+    "expected_outcome": "Trợ lý phải cho biết dữ liệu đến từ OpenStreetMap, đang ở trạng thái unverified và không nói rằng giá hoặc giờ đã được kiểm chứng thủ công.",
+    "turns": [
+      {
+        "user_input": "Cho tôi địa chỉ Minh Sushi ở Cầu Giấy.",
+        "district": "Cầu Giấy"
+      },
+      {
+        "user_input": "Thông tin này lấy từ đâu và đã được kiểm chứng chưa?",
         "district": "Cầu Giấy"
       }
     ]

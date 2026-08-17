@@ -1,10 +1,16 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, Loader2, Plus } from 'lucide-react';
+import { Send, Loader2, MapPin, Plus } from 'lucide-react';
 import { ChatMessage } from '../components/ChatMessage';
 import { useAuth } from '../context/AuthContext';
 import { DEFAULT_DISTRICT, useChat } from '../context/ChatContext';
 import { apiFetch, toApiError } from '../lib/api';
+import {
+  createNearbyRequestPayload,
+  getGeolocationErrorMessage,
+  NEARBY_RADIUS_OPTIONS,
+  requestCurrentLocation,
+} from '../lib/geolocation';
 
 const STREAM_IDLE_TIMEOUT_MS = 40000;
 
@@ -84,6 +90,11 @@ export const Chat = () => {
     activeRequestRef,
   } = useChat();
   const messagesEndRef = useRef(null);
+  const locationRequestIdRef = useRef(0);
+  const [nearbyLocation, setNearbyLocation] = useState(null);
+  const [nearbyRadiusKm, setNearbyRadiusKm] = useState(3);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState('');
   const { markUnauthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -102,6 +113,39 @@ export const Chat = () => {
     restoreSession({ signal: controller.signal });
     return () => controller.abort();
   }, [isLoading, restoreSession]);
+
+  useEffect(() => () => {
+    locationRequestIdRef.current += 1;
+  }, []);
+
+  const handleNearbyToggle = async () => {
+    if (nearbyLocation) {
+      locationRequestIdRef.current += 1;
+      setNearbyLocation(null);
+      setLocationError('');
+      return;
+    }
+
+    const requestId = ++locationRequestIdRef.current;
+    setIsLocating(true);
+    setLocationError('');
+
+    try {
+      const coordinates = await requestCurrentLocation();
+      if (requestId === locationRequestIdRef.current) {
+        setNearbyLocation(coordinates);
+      }
+    } catch (error) {
+      if (requestId === locationRequestIdRef.current) {
+        setNearbyLocation(null);
+        setLocationError(getGeolocationErrorMessage(error));
+      }
+    } finally {
+      if (requestId === locationRequestIdRef.current) {
+        setIsLocating(false);
+      }
+    }
+  };
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -150,6 +194,7 @@ export const Chat = () => {
           client_request_id: clientRequestId,
           question: userText,
           district: district === DEFAULT_DISTRICT ? null : district,
+          ...createNearbyRequestPayload(nearbyLocation, nearbyRadiusKm),
         }),
       });
 
@@ -315,31 +360,78 @@ export const Chat = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-61px)] bg-slate-50 dark:bg-slate-900">
       {/* Thanh lọc khu vực */}
-      <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-2 flex items-center justify-between text-xs shadow-sm">
-        <span className="text-slate-500 dark:text-slate-400 font-medium">Lọc khu vực:</span>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => clearChat()}
-            disabled={isLoading}
-            aria-label="Bắt đầu cuộc trò chuyện mới"
-            className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 font-medium text-red-600 hover:bg-red-50 dark:hover:bg-slate-700 disabled:opacity-50 transition"
-          >
-            <Plus size={14} />
-            <span className="hidden sm:inline">Cuộc trò chuyện mới</span>
-          </button>
-          <select
-            value={district}
-            onChange={(e) => setDistrict(e.target.value)}
-            className="bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg px-3 py-1.5 outline-none border border-slate-200 dark:border-slate-600 focus:border-red-500 transition cursor-pointer font-medium"
-          >
-            {HANOI_DISTRICTS.map((item) => (
-              <option key={item} value={item}>
-                {item === DEFAULT_DISTRICT ? 'Tất cả quận/huyện' : item}
-              </option>
-            ))}
-          </select>
+      <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-2 text-xs shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-slate-500 dark:text-slate-400 font-medium">Lọc khu vực:</span>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => clearChat()}
+              disabled={isLoading}
+              aria-label="Bắt đầu cuộc trò chuyện mới"
+              className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 font-medium text-red-600 hover:bg-red-50 dark:hover:bg-slate-700 disabled:opacity-50 transition"
+            >
+              <Plus size={14} />
+              <span className="hidden sm:inline">Cuộc trò chuyện mới</span>
+            </button>
+            <select
+              value={district}
+              onChange={(e) => setDistrict(e.target.value)}
+              aria-label="Lọc theo quận hoặc huyện"
+              className="bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg px-3 py-1.5 outline-none border border-slate-200 dark:border-slate-600 focus:border-red-500 transition cursor-pointer font-medium"
+            >
+              {HANOI_DISTRICTS.map((item) => (
+                <option key={item} value={item}>
+                  {item === DEFAULT_DISTRICT ? 'Tất cả quận/huyện' : item}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleNearbyToggle}
+              disabled={isLoading || isLocating}
+              aria-pressed={Boolean(nearbyLocation)}
+              aria-describedby={locationError ? 'nearby-location-error' : undefined}
+              className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 font-medium transition disabled:opacity-50 ${
+                nearbyLocation
+                  ? 'border-red-600 bg-red-600 text-white hover:bg-red-500'
+                  : 'border-slate-200 bg-slate-100 text-slate-700 hover:border-red-400 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200'
+              }`}
+            >
+              {isLocating
+                ? <Loader2 className="animate-spin" size={14} />
+                : <MapPin size={14} />}
+              {isLocating
+                ? 'Đang xác định...'
+                : nearbyLocation ? 'Tắt vị trí' : 'Gần tôi'}
+            </button>
+            {nearbyLocation && (
+              <label className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
+                <span>Bán kính:</span>
+                <select
+                  value={nearbyRadiusKm}
+                  onChange={(event) => setNearbyRadiusKm(Number(event.target.value))}
+                  disabled={isLoading}
+                  aria-label="Bán kính tìm kiếm quanh vị trí hiện tại"
+                  className="rounded-lg border border-slate-200 bg-slate-100 px-2 py-1.5 font-medium text-slate-800 outline-none focus:border-red-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
+                >
+                  {NEARBY_RADIUS_OPTIONS.map((radius) => (
+                    <option key={radius} value={radius}>{radius} km</option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
         </div>
+        {locationError && (
+          <p
+            id="nearby-location-error"
+            role="alert"
+            className="mt-2 text-right text-red-600 dark:text-red-400"
+          >
+            {locationError}
+          </p>
+        )}
       </div>
 
       {restoreError && (

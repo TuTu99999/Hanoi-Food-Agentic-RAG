@@ -11,6 +11,11 @@ TIME_INTERVAL_PATTERN = re.compile(
     r"(?P<opens>\d{1,2}:\d{2})\s*-\s*"
     r"(?P<closes>\d{1,2}:\d{2})",
 )
+OSM_DAY_PATTERN = re.compile(
+    r"\b(?:Mo|Tu|We|Th|Fr|Sa|Su)"
+    r"(?:\s*-\s*(?:Mo|Tu|We|Th|Fr|Sa|Su))?\b",
+    flags=re.IGNORECASE,
+)
 
 
 def parse_price_range(value: str | None) -> dict[str, Any]:
@@ -54,11 +59,26 @@ def parse_price_range(value: str | None) -> dict[str, Any]:
 def parse_opening_hours(value: str | None) -> dict[str, Any]:
     """Normalize daily time intervals, including split and overnight shifts."""
     raw_value = str(value or "").strip()
+    if raw_value.casefold() == "24/7":
+        return {
+            "opening_intervals": [
+                {
+                    "opens": "00:00",
+                    "closes": "00:00",
+                    "closes_next_day": True,
+                }
+            ],
+            "opening_status": "known",
+            "opening_schedule_scope": "always",
+        }
+
     cleaned_value = re.sub(r"\([^)]*\)", "", raw_value)
+    has_weekday = bool(OSM_DAY_PATTERN.search(cleaned_value))
+    cleaned_value = OSM_DAY_PATTERN.sub("", cleaned_value)
     interval_parts = [
         part.strip()
-        for part in cleaned_value.split("|")
-        if part.strip()
+        for part in re.split(r"[|,;]", cleaned_value)
+        if part.strip().casefold() not in {"", "off", "closed"}
     ]
     matches = [
         TIME_INTERVAL_PATTERN.fullmatch(part)
@@ -75,14 +95,20 @@ def parse_opening_hours(value: str | None) -> dict[str, Any]:
     try:
         for match in matches:
             opens = _normalize_time(match.group("opens"))
-            closes = _normalize_time(match.group("closes"))
-            if opens == closes:
+            closes_raw = match.group("closes")
+            closes_at_midnight = closes_raw == "24:00"
+            closes = (
+                "00:00"
+                if closes_at_midnight
+                else _normalize_time(closes_raw)
+            )
+            if opens == closes and not closes_at_midnight:
                 raise ValueError("Equal opening and closing times are ambiguous")
             intervals.append(
                 {
                     "opens": opens,
                     "closes": closes,
-                    "closes_next_day": closes <= opens,
+                    "closes_next_day": closes_at_midnight or closes <= opens,
                 }
             )
     except ValueError:
@@ -95,8 +121,9 @@ def parse_opening_hours(value: str | None) -> dict[str, Any]:
     return {
         "opening_intervals": intervals,
         "opening_status": "known",
-        # The source has no weekday or holiday schedule.
-        "opening_schedule_scope": "daily_assumed",
+        "opening_schedule_scope": (
+            "weekly_source" if has_weekday else "daily_assumed"
+        ),
     }
 
 

@@ -79,6 +79,9 @@ class FakeRAGPipeline:
         collection_name,
         district,
         history,
+        user_latitude=None,
+        user_longitude=None,
+        radius_km=None,
     ):
         self.calls.append(
             {
@@ -86,6 +89,9 @@ class FakeRAGPipeline:
                 "collection_name": collection_name,
                 "district": district,
                 "history": history,
+                "user_latitude": user_latitude,
+                "user_longitude": user_longitude,
+                "radius_km": radius_km,
             }
         )
 
@@ -101,12 +107,18 @@ class FakeRAGPipeline:
         collection_name,
         district,
         history,
+        user_latitude=None,
+        user_longitude=None,
+        radius_km=None,
     ):
         self._record_call(
             user_question=user_question,
             collection_name=collection_name,
             district=district,
             history=history,
+            user_latitude=user_latitude,
+            user_longitude=user_longitude,
+            radius_km=radius_km,
         )
         if self.delay_seconds:
             time.sleep(self.delay_seconds)
@@ -121,12 +133,18 @@ class FakeRAGPipeline:
         collection_name,
         district,
         history,
+        user_latitude=None,
+        user_longitude=None,
+        radius_km=None,
     ):
         self._record_call(
             user_question=user_question,
             collection_name=collection_name,
             district=district,
             history=history,
+            user_latitude=user_latitude,
+            user_longitude=user_longitude,
+            radius_km=radius_km,
         )
         if self.delay_seconds:
             await asyncio.sleep(self.delay_seconds)
@@ -428,6 +446,41 @@ class P0FlowTests(unittest.TestCase):
             self.assertEqual(database.query(MessageModel).count(), 0)
         finally:
             database.close()
+
+    def test_nearby_filter_reaches_rag_without_persisting_coordinates(self):
+        client = self.register_and_login("nearby-user")
+        response = client.post(
+            "/api/chat/stream",
+            json={
+                "question": "Tìm quán phở gần tôi",
+                "nearby": {
+                    "latitude": 21.0285,
+                    "longitude": 105.8542,
+                },
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(parse_sse(response.text)[-1][0], "done")
+        rag_call = self.fake_rag.calls[-1]
+        self.assertEqual(rag_call["user_latitude"], 21.0285)
+        self.assertEqual(rag_call["user_longitude"], 105.8542)
+        self.assertEqual(rag_call["radius_km"], 3)
+
+        session_id = parse_sse(response.text)[0][1]["session_id"]
+        stored_history = client.get(f"/api/history/{session_id}")
+        self.assertEqual(stored_history.status_code, 200)
+        self.assertNotIn("21.0285", stored_history.text)
+        self.assertNotIn("105.8542", stored_history.text)
+
+        invalid_response = client.post(
+            "/api/chat/stream",
+            json={
+                "question": "Tìm quán gần tôi",
+                "nearby": {"latitude": 21.0285},
+            },
+        )
+        self.assertEqual(invalid_response.status_code, 422)
 
     def test_two_turn_stream_history_ownership_and_cascade(self):
         owner = self.register_and_login("owner")

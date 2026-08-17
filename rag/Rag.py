@@ -15,6 +15,7 @@ from core.resilience import (
 )
 from embedding.text_utils import normalize_text
 from langsmith import traceable
+from rag.map_links import append_directions_links
 from rag.tracing import (
     reduce_stream,
     trace_inputs,
@@ -42,9 +43,17 @@ SYSTEM_INSTRUCTION = (
     "5. Có thể nhận biết lỗi chính tả nhỏ khi tên trong ngữ cảnh khớp rõ ràng; "
     "không tự tạo địa điểm mới.\n"
     "6. Dữ liệu giờ mở cửa có nhãn 'daily_assumed' chỉ là lịch hằng ngày từ "
-    "nguồn hiện có; không tự khẳng định lịch ngày lễ hoặc ngày đặc biệt.\n"
+    "nguồn hiện có; 'weekly_source' là lịch tuần từ nguồn. Không tự khẳng định "
+    "lịch ngày lễ hoặc ngày đặc biệt.\n"
     "7. Nếu verification_status là 'unverified', hãy coi giá và giờ mở cửa là "
-    "dữ liệu tham khảo, không khẳng định rằng thông tin vừa được kiểm chứng."
+    "dữ liệu tham khảo, không khẳng định rằng thông tin vừa được kiểm chứng.\n"
+    "8. Chỉ chèn ảnh Markdown khi image_url có trong ngữ cảnh, dùng nguyên URL "
+    "và tối đa một ảnh cho mỗi địa điểm. Không tự tạo URL; image_kind='place' "
+    "là ảnh địa điểm, không phải ảnh món ăn. Nếu có metadata nguồn/giấy phép "
+    "ảnh thì phải ghi kèm.\n"
+    "9. Nếu distance_km có trong ngữ cảnh, hãy mô tả đó là khoảng cách ước tính "
+    "theo tọa độ OpenStreetMap. Chỉ dùng đúng giá trị được cung cấp, không tự "
+    "tính hoặc suy đoán khoảng cách."
 )
 
 
@@ -270,6 +279,9 @@ class RAGPipeline:
         collection_name: str | None = None,
         district: str | None = None,
         history: list[dict[str, str]] | None = None,
+        user_latitude: float | None = None,
+        user_longitude: float | None = None,
+        radius_km: float | None = None,
     ) -> tuple[
         str | None,
         list[dict[str, str]],
@@ -290,6 +302,9 @@ class RAGPipeline:
             history=cleaned_history,
             collection_name=collection_name,
             search_query=search_query,
+            user_latitude=user_latitude,
+            user_longitude=user_longitude,
+            radius_km=radius_km,
         )
         context_docs = agent_result.documents
 
@@ -308,6 +323,10 @@ class RAGPipeline:
                 "exact_shortcut_used": (
                     agent_result.exact_shortcut_used
                 ),
+                "nearby_filter_applied": (
+                    agent_result.nearby_filter_applied
+                ),
+                "radius_km": agent_result.radius_km,
             },
         )
         for idx, doc in enumerate(context_docs):
@@ -352,15 +371,32 @@ class RAGPipeline:
                         "opening_schedule_scope",
                     ),
                     "tags": doc.get("tags", []),
+                    "aliases": doc.get("aliases", []),
+                    "cuisines": doc.get("cuisines", []),
+                    "district_source": doc.get("district_source"),
+                    "address_source": doc.get("address_source"),
+                    "latitude": doc.get("latitude"),
+                    "longitude": doc.get("longitude"),
+                    "distance_km": doc.get("distance_km"),
+                    "phone": doc.get("phone"),
+                    "website": doc.get("website"),
+                    "image_url": doc.get("image_url"),
+                    "image_source_url": doc.get("image_source_url"),
+                    "image_license": doc.get("image_license"),
+                    "image_attribution": doc.get("image_attribution"),
+                    "image_kind": doc.get("image_kind"),
                     "knowledge_version": doc.get("knowledge_version"),
                     "source_name": doc.get("source_name"),
                     "source_url": doc.get("source_url"),
+                    "source_id": doc.get("source_id"),
                     "retrieved_at": doc.get("retrieved_at"),
                     "last_verified_at": doc.get("last_verified_at"),
                     "verification_status": doc.get(
                         "verification_status",
                         "unknown",
                     ),
+                    "license": doc.get("license"),
+                    "license_url": doc.get("license_url"),
                     # Keep the evidence prompt bounded even if a catalog
                     # entity has many chunks.
                     "description": str(doc.get("content", ""))[:1200],
@@ -401,6 +437,9 @@ class RAGPipeline:
         collection_name: str | None = None,
         district: str | None = None,
         history: list[dict[str, str]] | None = None,
+        user_latitude: float | None = None,
+        user_longitude: float | None = None,
+        radius_km: float | None = None,
     ) -> dict:
         started_at = time.perf_counter()
         direct_answer, messages, context = self._prepare_messages(
@@ -408,6 +447,9 @@ class RAGPipeline:
             collection_name=collection_name,
             district=district,
             history=history,
+            user_latitude=user_latitude,
+            user_longitude=user_longitude,
+            radius_km=radius_km,
         )
         if direct_answer:
             return {
@@ -443,6 +485,7 @@ class RAGPipeline:
         answer = choice.message.content
         if not isinstance(answer, str) or not answer.strip():
             raise RuntimeError("LLM trả về nội dung rỗng.")
+        answer = append_directions_links(answer, context)
 
         usage = getattr(response, "usage", None)
         prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
@@ -467,12 +510,18 @@ class RAGPipeline:
         collection_name: str | None = None,
         district: str | None = None,
         history: list[dict[str, str]] | None = None,
+        user_latitude: float | None = None,
+        user_longitude: float | None = None,
+        radius_km: float | None = None,
     ) -> str:
         result = self.run_with_metrics(
             user_question=user_question,
             collection_name=collection_name,
             district=district,
             history=history,
+            user_latitude=user_latitude,
+            user_longitude=user_longitude,
+            radius_km=radius_km,
         )
         return result["answer"]
 
@@ -491,13 +540,19 @@ class RAGPipeline:
         collection_name: str | None = None,
         district: str | None = None,
         history: list[dict[str, str]] | None = None,
+        user_latitude: float | None = None,
+        user_longitude: float | None = None,
+        radius_km: float | None = None,
     ) -> AsyncIterator[str]:
-        direct_answer, messages, _context = await asyncio.to_thread(
+        direct_answer, messages, context = await asyncio.to_thread(
             self._prepare_messages,
             user_question=user_question,
             collection_name=collection_name,
             district=district,
             history=history,
+            user_latitude=user_latitude,
+            user_longitude=user_longitude,
+            radius_km=radius_km,
         )
         if direct_answer:
             yield direct_answer
@@ -520,6 +575,7 @@ class RAGPipeline:
         )
 
         received_content = False
+        answer_parts = []
         finish_reason = None
         try:
             async for chunk in response_stream:
@@ -537,6 +593,7 @@ class RAGPipeline:
                             "LLM stream trả về delta không hợp lệ."
                         )
                     received_content = True
+                    answer_parts.append(delta)
                     yield delta
         except Exception:
             self.llm_circuit_breaker.record_failure()
@@ -554,6 +611,13 @@ class RAGPipeline:
             raise RuntimeError("LLM stream trả về câu trả lời bị cắt ngắn.")
         if not received_content:
             raise RuntimeError("LLM stream trả về nội dung rỗng.")
+
+        answer = "".join(answer_parts)
+        answer_with_directions = append_directions_links(answer, context)
+        cleaned_answer = answer.strip()
+        directions_suffix = answer_with_directions[len(cleaned_answer):]
+        if directions_suffix:
+            yield directions_suffix
 
         self.llm_circuit_breaker.record_success()
         logger.info("LLM đã stream câu trả lời thành công.")

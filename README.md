@@ -4,6 +4,18 @@
 Prometheus/Grafana và một Agentic Hybrid RAG tập trung vào ẩm thực Hà Nội. LLM
 dùng Gemini qua OpenAI-compatible API.
 
+Mỗi địa điểm được đề xuất có nút mở Google Maps. Link ưu tiên địa chỉ đường/số
+nhà vì tọa độ cộng đồng OSM có thể sai lệch, và chỉ dùng tọa độ làm fallback khi
+thiếu địa chỉ cụ thể. Link không cần API key và để Google Maps dùng vị trí hiện
+tại của thiết bị làm điểm xuất phát.
+
+Nearby Food Finder chỉ xin quyền vị trí sau khi người dùng bấm `Gần tôi`. Tọa độ
+được gửi trong đúng request chat đang chạy để lọc bán kính bằng Qdrant GEO và
+Haversine, không được lưu vào history, database, log hoặc LangSmith trace. FE chỉ
+giữ vị trí trong state của trang Chat; reload hoặc rời trang sẽ xóa. Khoảng cách
+hiển thị là ước tính theo tọa độ OSM. Production phải dùng HTTPS để browser cho
+phép Geolocation API.
+
 ## Dịch vụ cần có
 
 - Python 3.10.11 (được pin trong `.python-version`)
@@ -158,30 +170,30 @@ dung câu hỏi.
 
 ## Xây dựng knowledge base
 
-Pipeline hiện chỉ index Food. Trong 420 record nguồn có 418 record ẩm thực hợp
-lệ; hai record sai category được giữ trong raw data để review nhưng không đưa
-vào collection mới. Kết quả hiện tại là 624 chunk, giới hạn 90 token và overlap
-15 token.
+Pipeline hiện chỉ index Food. Catalog gồm 792 địa điểm thật từ OpenStreetMap có
+quận Hà Nội được xác định trực tiếp từ metadata nguồn. Kết quả hiện tại là 820
+chunk, giới hạn 120 token và overlap 15 token.
 
 Metadata giá và giờ mở cửa được chuẩn hóa song song với giá trị raw:
 
 - `price_min`, `price_max`, `price_currency`, `price_status`
 - `opening_intervals`, `closes_next_day`, `opening_schedule_scope`
 - `sub_category_normalized`, `tags_normalized`
+- tọa độ, cuisine, liên hệ và provenance/giấy phép OSM
+- ảnh Wikimedia Commons nếu nguồn có metadata ảnh hợp lệ
 
-POC metadata Foody Hà Nội được giữ riêng để review, không tự động ghi đè catalog:
+Làm mới dữ liệu OSM vào file review trước:
 
 ```powershell
-python scripts/crawl_foody_hanoi.py `
-  --limit 20 `
-  --delay-seconds 3 `
-  --acknowledge-terms
+python scripts/import_osm_hanoi_food.py
 ```
 
-Script giới hạn cứng 50 record, không lưu review, ảnh, username hoặc số điện
-thoại. Hãy đọc lại điều khoản Foody trước mỗi lần chạy. File kết quả nằm tại
-`data/imports/foody_hanoi_poc.json`; chỉ merge record đã kiểm chứng vào
-`data/raw/food_raw.json`.
+File review và summary nằm trong `data/imports/` và không được commit. Sau khi
+kiểm tra summary/sample, chủ động promote bằng
+`--output data/raw/food_raw.json`. Importer không bịa giá, menu hoặc ảnh; trường
+thiếu giữ `N/A`, `[]` hoặc `null`. Dữ liệu địa điểm mang giấy phép ODbL 1.0 và
+attribution
+[`OpenStreetMap contributors`](https://www.openstreetmap.org/copyright).
 
 Chạy từ thư mục gốc:
 
@@ -194,11 +206,12 @@ python -m embedding.upload_to_qdrant
 
 Pipeline tạo `data/processed/food_manifest.json` và manifest cạnh file vector.
 Mỗi chunk mang cùng một `knowledge_version`; runtime từ chối hợp nhất BM25 và
-Qdrant nếu hai nhánh trả về version khác nhau. Record cũ chưa có nguồn được giữ
-trung thực với `verification_status=unverified`.
+Qdrant nếu hai nhánh trả về version khác nhau. Record OSM giữ
+`verification_status=unverified` cho tới khi được kiểm chứng thủ công.
 
-Uploader tạo collection vật lý `hanoi_food_v2`, kiểm tra point count và payload
-mẫu, sau đó mới chuyển alias `hanoi_food_current`. Collection cũ không bị xóa
+Uploader tạo collection vật lý `hanoi_food_osm_v2`, thêm GEO payload/index, kiểm
+tra point count và payload mẫu, sau đó mới chuyển alias `hanoi_food_current`.
+Collection cũ không bị xóa
 nên có thể rollback. Sau khi upload thành công, đặt:
 
 ```dotenv
@@ -213,22 +226,24 @@ ghi đè version cũ:
 ```powershell
 python -m embedding.generate_embeddings `
   --local-files-only `
-  --output data/final/hanoi_food_v2.json
+  --output data/final/hanoi_food_osm_v1.json
 
 python -m embedding.upload_to_qdrant `
-  --input data/final/hanoi_food_v2.json `
-  --collection hanoi_food_v2 `
+  --input data/final/hanoi_food_osm_v1.json `
+  --collection hanoi_food_osm_v2 `
   --alias hanoi_food_current `
-  --expected-points 773 `
-  --expected-parents 418
+  --expected-points 820 `
+  --expected-parents 792
 ```
 
-Hai count trên là chốt an toàn của dữ liệu hiện tại. Nếu đã review và chủ động đổi
-dữ liệu/chunking, thay chúng bằng số chunk và số food record mà pipeline vừa in ra.
+Hai count trên là chốt an toàn của dữ liệu hiện tại. Collection `v2` dùng lại
+vector 384 chiều của file `v1` vì thay đổi này chỉ bổ sung geo payload/index,
+không đổi model hoặc nội dung embedding. Nếu đã review và chủ động đổi dữ liệu
+hoặc chunking, dùng tên version kế tiếp và thay count bằng số pipeline vừa in ra.
 
-Retrieval benchmark có 120 case trên 65 quán: entity lookup, nhu cầu tự nhiên,
-multi-constraint, typo/slang và no-answer. Trước khi chạy, có thể xác nhận file
-JSON vẫn khớp catalog và bộ seed đã review:
+Retrieval benchmark offline có 80 case trên 75 địa điểm: entity lookup, giờ mở
+cửa, truy vấn không dấu và no-answer. Trước khi chạy, có thể xác nhận file JSON
+vẫn khớp catalog:
 
 ```powershell
 python -m scripts.build_retrieval_cases --check
@@ -310,7 +325,7 @@ docker volume create qdrant_storage
 ```
 
 Máy hiện tại đã có volume này với alias
-`hanoi_food_current -> hanoi_food_v1`; không upload lại collection mặc định.
+`hanoi_food_current -> hanoi_food_osm_v2`; không upload lại collection mặc định.
 Container Qdrant cũ phải được dừng trước khi Compose nhận quyền quản lý volume:
 
 ```powershell
@@ -355,7 +370,7 @@ pipeline build/upload vào collection version mới rồi mới dùng chat:
 ```powershell
 python -m embedding.process_data --local-files-only
 python -m embedding.generate_embeddings --local-files-only
-python -m embedding.upload_to_qdrant --collection hanoi_food_v2
+python -m embedding.upload_to_qdrant --collection hanoi_food_osm_v2
 ```
 
 Dừng container nhưng giữ database:

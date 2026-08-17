@@ -19,6 +19,7 @@ os.environ["AUTH_COOKIE_SECURE"] = "false"
 os.environ["AUTH_COOKIE_SAMESITE"] = "lax"
 
 from embedding.process_data import build_chunks, count_tokens, json_sha256
+from embedding.lexical_index import LexicalIndex
 from embedding.retrieval_engine import RetrievalEngine, normalize_text
 from embedding.upload_to_qdrant import (
     point_id_from_chunk_id,
@@ -87,6 +88,15 @@ class FakeRagRetriever:
                 "price_range": "35.000đ",
                 "opening_hours": "06:00 - 22:00",
                 "tags": ["bánh mì"],
+                "aliases": ["Bánh mì Đình Ngang"],
+                "cuisines": ["vietnamese"],
+                "latitude": 21.03,
+                "longitude": 105.84,
+                "image_url": "https://upload.wikimedia.org/example.jpg",
+                "image_kind": "place",
+                "source_id": "node/123",
+                "license": "ODbL 1.0",
+                "license_url": "https://www.openstreetmap.org/copyright",
                 "content": "Quán nằm tại góc Đình Ngang.",
             }
         ]
@@ -176,6 +186,19 @@ class P1RagQualityTests(unittest.TestCase):
                 "Hai mốt hai hai hai ba hai bốn hai năm hai sáu."
             ),
             "tags": ["Kiểm thử", "Món Việt"],
+            "aliases": ["Quán test"],
+            "cuisines": ["vietnamese"],
+            "district_source": "osm_address_tag",
+            "address_source": "osm_street",
+            "latitude": 21.03,
+            "longitude": 105.84,
+            "image_url": "https://upload.wikimedia.org/example.jpg",
+            "image_source_url": "https://commons.wikimedia.org/wiki/File:Example.jpg",
+            "image_license": "CC BY-SA 4.0",
+            "image_attribution": "Example author",
+            "image_kind": "place",
+            "source_id": "node/123",
+            "license_url": "https://www.openstreetmap.org/copyright",
         }
 
         chunks = build_chunks(
@@ -198,6 +221,14 @@ class P1RagQualityTests(unittest.TestCase):
             "unverified",
         )
         self.assertIsNone(chunks[0]["source_url"])
+        self.assertEqual(chunks[0]["aliases"], ["Quán test"])
+        self.assertEqual(chunks[0]["cuisines"], ["vietnamese"])
+        self.assertEqual(chunks[0]["latitude"], 21.03)
+        self.assertEqual(
+            chunks[0]["image_url"],
+            "https://upload.wikimedia.org/example.jpg",
+        )
+        self.assertEqual(chunks[0]["source_id"], "node/123")
         self.assertIn("Món Việt", chunks[0]["vector_text"])
         self.assertIn("30.000đ - 50.000đ", chunks[0]["vector_text"])
         self.assertTrue(
@@ -218,6 +249,15 @@ class P1RagQualityTests(unittest.TestCase):
             default=0,
         )
         self.assertGreater(overlap, 0)
+
+        lexical_document = LexicalIndex(chunks).documents[0]
+        self.assertEqual(lexical_document["aliases"], ["Quán test"])
+        self.assertEqual(lexical_document["cuisines"], ["vietnamese"])
+        self.assertEqual(lexical_document["latitude"], 21.03)
+        self.assertEqual(
+            lexical_document["image_url"],
+            "https://upload.wikimedia.org/example.jpg",
+        )
 
     def test_processed_data_covers_every_raw_parent(self):
         all_chunk_ids = set()
@@ -250,8 +290,8 @@ class P1RagQualityTests(unittest.TestCase):
             chunk_parent_ids = {chunk["parent_id"] for chunk in chunks}
             self.assertEqual(chunk_parent_ids, raw_parent_ids)
             if domain == "food":
-                self.assertEqual(len(chunk_parent_ids), 418)
-                self.assertEqual(len(chunks), 773)
+                self.assertEqual(len(chunk_parent_ids), 792)
+                self.assertEqual(len(chunks), 820)
                 self.assertEqual(
                     len(
                         {
@@ -314,6 +354,12 @@ class P1RagQualityTests(unittest.TestCase):
                 address="252 Hàng Bông, Hoàn Kiếm, Hà Nội",
                 district="Hoàn Kiếm",
                 category="Ẩm thực",
+                aliases=["Bánh mì Đình Ngang"],
+                cuisines=["vietnamese"],
+                latitude=21.03,
+                longitude=105.84,
+                image_url="https://upload.wikimedia.org/example.jpg",
+                image_kind="place",
                 description="Địa chỉ quán là 252 Hàng Bông.",
             ),
             make_hit(
@@ -363,6 +409,11 @@ class P1RagQualityTests(unittest.TestCase):
         )
         self.assertIn("252 Hàng Bông", documents[0]["content"])
         self.assertIn("góc Đình Ngang", documents[0]["content"])
+        self.assertEqual(documents[0]["latitude"], 21.03)
+        self.assertEqual(
+            documents[0]["image_url"],
+            "https://upload.wikimedia.org/example.jpg",
+        )
         self.assertNotIn(
             "food_noise",
             {document["parent_id"] for document in documents},
@@ -477,7 +528,10 @@ class P1RagQualityTests(unittest.TestCase):
 
         retriever = FakeRagRetriever()
         response_stream = FakeAsyncCompletionStream(
-            ["Địa chỉ ", "là 252 Hàng Bông."]
+            [
+                "Bánh mì sốt vang Đình Ngang ",
+                "có địa chỉ là 252 Hàng Bông.",
+            ]
         )
         completions = FakeAsyncCompletions(response_stream)
 
@@ -513,7 +567,18 @@ class P1RagQualityTests(unittest.TestCase):
 
         deltas = asyncio.run(collect_deltas())
 
-        self.assertEqual(deltas, ["Địa chỉ ", "là 252 Hàng Bông."])
+        self.assertEqual(
+            deltas[:2],
+            [
+                "Bánh mì sốt vang Đình Ngang ",
+                "có địa chỉ là 252 Hàng Bông.",
+            ],
+        )
+        self.assertIn("Chỉ đường từ vị trí hiện tại", deltas[2])
+        self.assertIn(
+            "destination=252+H%C3%A0ng+B%C3%B4ng%2C+Ho%C3%A0n+Ki%E1%BA%BFm%2C+H%C3%A0+N%E1%BB%99i",
+            deltas[2],
+        )
         self.assertTrue(response_stream.closed)
         self.assertTrue(completions.last_call["stream"])
         self.assertEqual(
@@ -529,6 +594,9 @@ class P1RagQualityTests(unittest.TestCase):
             history[0]["content"],
             retriever.last_call["query"],
         )
+        context_prompt = completions.last_call["messages"][-1]["content"]
+        self.assertIn("https://upload.wikimedia.org/example.jpg", context_prompt)
+        self.assertIn("ODbL 1.0", context_prompt)
 
     def test_stream_cleanup_error_does_not_mask_answer(self):
         from rag.Rag import RAGPipeline

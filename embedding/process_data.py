@@ -51,10 +51,25 @@ REQUIRED_FIELDS = (
 PROVENANCE_FIELDS = (
     "source_name",
     "source_url",
+    "source_id",
     "retrieved_at",
     "last_verified_at",
     "license",
+    "license_url",
 )
+OPTIONAL_TEXT_FIELDS = (
+    "district_source",
+    "address_source",
+    "phone",
+    "website",
+    "image_url",
+    "image_source_url",
+    "image_license",
+    "image_attribution",
+    "image_kind",
+)
+OPTIONAL_LIST_FIELDS = ("aliases", "cuisines")
+OPTIONAL_NUMBER_FIELDS = ("latitude", "longitude")
 VERIFICATION_STATUSES = {
     "verified",
     "stale",
@@ -88,7 +103,7 @@ def json_sha256(data):
 
 def build_knowledge_version(items, domain, max_tokens, overlap_tokens):
     version_input = {
-        "schema_version": 1,
+        "schema_version": 2,
         "domain": domain,
         "max_tokens": max_tokens,
         "overlap_tokens": overlap_tokens,
@@ -213,10 +228,12 @@ def chunk_description(description, tokenizer, max_tokens, overlap_tokens):
 
 def build_prefix(item):
     tags = ", ".join(item["tags"])
+    aliases = ", ".join(item.get("aliases", []))
     return clean_text(
         " | ".join(
             [
                 item["title"],
+                aliases,
                 item["address"],
                 item["district"],
                 item["category"],
@@ -299,6 +316,18 @@ def build_chunks(
             for tag in raw_item["tags"]
             if clean_text(tag)
         ]
+        for field in OPTIONAL_LIST_FIELDS:
+            values = raw_item.get(field, [])
+            item[field] = (
+                [clean_text(value) for value in values if clean_text(value)]
+                if isinstance(values, list)
+                else []
+            )
+        for field in OPTIONAL_TEXT_FIELDS:
+            item[field] = clean_text(raw_item.get(field)) or None
+        for field in OPTIONAL_NUMBER_FIELDS:
+            value = raw_item.get(field)
+            item[field] = value if isinstance(value, (int, float)) else None
         price_data = parse_price_range(item["price_range"])
         opening_data = parse_opening_hours(item["opening_hours"])
         provenance = build_provenance(raw_item)
@@ -366,6 +395,27 @@ def build_chunks(
                         normalize_for_filter(tag)
                         for tag in item["tags"]
                     ],
+                    "aliases": item["aliases"],
+                    "aliases_normalized": [
+                        normalize_for_filter(alias)
+                        for alias in item["aliases"]
+                    ],
+                    "cuisines": item["cuisines"],
+                    "cuisines_normalized": [
+                        normalize_for_filter(cuisine)
+                        for cuisine in item["cuisines"]
+                    ],
+                    "district_source": item["district_source"],
+                    "address_source": item["address_source"],
+                    "latitude": item["latitude"],
+                    "longitude": item["longitude"],
+                    "phone": item["phone"],
+                    "website": item["website"],
+                    "image_url": item["image_url"],
+                    "image_source_url": item["image_source_url"],
+                    "image_license": item["image_license"],
+                    "image_attribution": item["image_attribution"],
+                    "image_kind": item["image_kind"],
                     "description": description,
                     "vector_text": vector_text,
                     **provenance,
@@ -418,7 +468,7 @@ def process_dataset(
         write_json(
             dataset["manifest"],
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "knowledge_version": knowledge_version,
                 "domain": dataset["domain"],
                 "dataset_sha256": json_sha256(raw_items),

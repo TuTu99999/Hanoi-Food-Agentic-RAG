@@ -237,6 +237,53 @@ class AgenticHybridRAGTests(unittest.TestCase):
         self.assertEqual(results[0]["parent_id"], "food_025")
         self.assertGreaterEqual(results[0]["exact_score"], 0.84)
 
+    def test_lexical_query_does_not_score_the_district_filter(self):
+        query = RetrievalEngine._build_lexical_query(
+            "phở bò ở Cầu Giấy",
+            "Cầu Giấy",
+        )
+
+        self.assertEqual(query, "pho bo")
+
+    def test_partial_dish_match_is_not_sufficient_keyword_evidence(self):
+        workflow = AgenticRAGWorkflow.__new__(AgenticRAGWorkflow)
+        workflow.min_score = 0.5
+        partial_match = evidence_document(semantic_score=0.2)
+        partial_match["keyword_coverage"] = 0.5
+        strong_match = evidence_document(semantic_score=0.2)
+        strong_match["keyword_coverage"] = 0.75
+
+        self.assertFalse(
+            workflow._has_sufficient_score(
+                partial_match,
+                allow_keyword_evidence=True,
+                require_keyword_support=True,
+            )
+        )
+        self.assertTrue(
+            workflow._has_sufficient_score(
+                strong_match,
+                allow_keyword_evidence=True,
+                require_keyword_support=True,
+            )
+        )
+
+    def test_keyword_coverage_ignores_generic_food_words(self):
+        index = LexicalIndex(
+            [
+                catalog_row(
+                    "food_pizza",
+                    "Kuma Pizza",
+                    description="Nhà hàng pizza.",
+                    sub_category="Pizza",
+                )
+            ]
+        )
+
+        results = index.keyword_search("quán pizza")
+
+        self.assertEqual(results[0]["keyword_coverage"], 1.0)
+
     def test_bm25_returns_an_independent_lexical_candidate(self):
         index = LexicalIndex(
             [
@@ -298,6 +345,22 @@ class AgenticHybridRAGTests(unittest.TestCase):
             ],
             ["food_affordable"],
         )
+
+    def test_opening_hours_parser_supports_common_osm_values(self):
+        weekly = parse_opening_hours(
+            "Mo-Su 10:00-14:00,16:00-22:00"
+        )
+        always = parse_opening_hours("24/7")
+
+        self.assertEqual(weekly["opening_status"], "known")
+        self.assertEqual(
+            weekly["opening_schedule_scope"],
+            "weekly_source",
+        )
+        self.assertEqual(len(weekly["opening_intervals"]), 2)
+        self.assertTrue(is_open_at(weekly["opening_intervals"], "20:00"))
+        self.assertEqual(always["opening_schedule_scope"], "always")
+        self.assertTrue(is_open_at(always["opening_intervals"], "03:00"))
 
     def test_mixed_knowledge_versions_are_rejected(self):
         first = catalog_row(
@@ -467,6 +530,8 @@ class AgenticHybridRAGTests(unittest.TestCase):
         self.assertEqual(conditions["price_min"].range.lte, 50000)
 
     def test_workflow_forces_food_and_drops_travel_documents(self):
+        food_document = evidence_document()
+        food_document["keyword_coverage"] = 1.0
         retriever = RecordingRetriever(
             [
                 retrieval_result(
@@ -476,7 +541,7 @@ class AgenticHybridRAGTests(unittest.TestCase):
                             title="Hồ Hoàn Kiếm",
                             domain="travel",
                         ),
-                        evidence_document(),
+                        food_document,
                     ]
                 )
             ]
@@ -500,8 +565,10 @@ class AgenticHybridRAGTests(unittest.TestCase):
         )
 
     def test_sufficient_evidence_does_not_retry(self):
+        document = evidence_document()
+        document["keyword_coverage"] = 1.0
         retriever = RecordingRetriever(
-            [retrieval_result([evidence_document()])]
+            [retrieval_result([document])]
         )
         workflow = AgenticRAGWorkflow(
             retriever,
@@ -525,6 +592,7 @@ class AgenticHybridRAGTests(unittest.TestCase):
             parent_id="food_strong",
             semantic_score=0.8,
         )
+        strong_document["keyword_coverage"] = 1.0
         retriever = RecordingRetriever(
             [retrieval_result([weak_document, strong_document])]
         )
@@ -790,6 +858,12 @@ class AgenticHybridRAGTests(unittest.TestCase):
         )
         self.assertTrue(
             AgenticRAGWorkflow._has_food_signal("quán nào còn mở")
+        )
+        self.assertFalse(
+            AgenticRAGWorkflow._has_specific_food_signal("chào bạn nhé")
+        )
+        self.assertTrue(
+            AgenticRAGWorkflow._has_specific_food_signal("tìm cháo gà")
         )
 
     def test_invalid_provided_district_is_not_used_as_filter(self):

@@ -7,7 +7,15 @@ from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
-from qdrant_client.models import FieldCondition, Filter, MatchValue, Range
+from qdrant_client.models import (
+    FieldCondition,
+    Filter,
+    GeoPoint,
+    GeoRadius,
+    MatchValue,
+    PayloadSchemaType,
+    Range,
+)
 from sentence_transformers import SentenceTransformer
 
 from core.resilience import (
@@ -22,7 +30,13 @@ from embedding.catalog_schema import (
     parse_price_range,
 )
 from embedding.lexical_index import LexicalIndex
-from embedding.text_utils import field_match_score, normalize_text
+from embedding.geo import (
+    MAX_RADIUS_KM,
+    MIN_RADIUS_KM,
+    distance_km,
+    valid_coordinates,
+)
+from embedding.text_utils import field_match_score, lexical_terms, normalize_text
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -185,6 +199,9 @@ class RetrievalEngine:
         price_min_filter: Optional[int] = None,
         price_max_filter: Optional[int] = None,
         open_at_filter: Optional[str] = None,
+        user_latitude: Optional[float] = None,
+        user_longitude: Optional[float] = None,
+        radius_km: Optional[float] = None,
         min_score: float = DEFAULT_MIN_SCORE,
         collection_name: Optional[str] = None,
         search_modes: Optional[tuple[str, ...]] = None,
@@ -199,6 +216,9 @@ class RetrievalEngine:
             price_min_filter=price_min_filter,
             price_max_filter=price_max_filter,
             open_at_filter=open_at_filter,
+            user_latitude=user_latitude,
+            user_longitude=user_longitude,
+            radius_km=radius_km,
             min_score=min_score,
             collection_name=collection_name,
             search_modes=search_modes,
@@ -215,6 +235,9 @@ class RetrievalEngine:
         price_min_filter: Optional[int] = None,
         price_max_filter: Optional[int] = None,
         open_at_filter: Optional[str] = None,
+        user_latitude: Optional[float] = None,
+        user_longitude: Optional[float] = None,
+        radius_km: Optional[float] = None,
         min_score: float = DEFAULT_MIN_SCORE,
         collection_name: Optional[str] = None,
         search_modes: Optional[tuple[str, ...]] = None,
@@ -247,6 +270,11 @@ class RetrievalEngine:
             )
         if domain_filter and normalize_text(domain_filter) != "food":
             raise ValueError("This retrieval engine only supports food data.")
+        location_filter_active = self._validate_location_filter(
+            user_latitude=user_latitude,
+            user_longitude=user_longitude,
+            radius_km=radius_km,
+        )
 
         modes = search_modes or ("exact", "keyword", "semantic")
         allowed_modes = {"exact", "keyword", "semantic"}
@@ -261,6 +289,9 @@ class RetrievalEngine:
                 price_min=price_min_filter,
                 price_max=price_max_filter,
                 open_at=open_at_filter,
+                user_latitude=user_latitude,
+                user_longitude=user_longitude,
+                radius_km=radius_km,
             )
             if lexical_index is not None
             else None
@@ -268,15 +299,19 @@ class RetrievalEngine:
         result_groups: dict[str, list[dict[str, Any]]] = {}
         branch_errors: list[str] = []
         semantic_candidate_count = 0
+        lexical_query = self._build_lexical_query(query, district_filter)
 
         if "exact" in modes and lexical_index is not None:
             result_groups["exact"] = lexical_index.exact_search(
-                query=query,
+                query=lexical_query,
                 district=district_filter,
                 category=category_filter,
                 price_min=price_min_filter,
                 price_max=price_max_filter,
                 open_at=open_at_filter,
+                user_latitude=user_latitude,
+                user_longitude=user_longitude,
+                radius_km=radius_km,
                 limit=max(top_k * 3, 10),
             )
 
@@ -294,6 +329,13 @@ class RetrievalEngine:
                     {"exact": strong_exact_results},
                     top_k=top_k,
                 )
+                documents = self._rank_with_location(
+                    documents,
+                    top_k=top_k,
+                    user_latitude=user_latitude,
+                    user_longitude=user_longitude,
+                    radius_km=radius_km,
+                )
                 return RetrievalResult(
                     documents=documents,
                     candidate_count=len(exact_results),
@@ -305,12 +347,15 @@ class RetrievalEngine:
 
         if "keyword" in modes and lexical_index is not None:
             result_groups["keyword"] = lexical_index.keyword_search(
-                query=query,
+                query=lexical_query,
                 district=district_filter,
                 category=category_filter,
                 price_min=price_min_filter,
                 price_max=price_max_filter,
                 open_at=open_at_filter,
+                user_latitude=user_latitude,
+                user_longitude=user_longitude,
+                radius_km=radius_km,
                 limit=max(top_k * 5, 20),
             )
 
@@ -325,6 +370,9 @@ class RetrievalEngine:
                         price_min_filter=price_min_filter,
                         price_max_filter=price_max_filter,
                         open_at_filter=open_at_filter,
+                        user_latitude=user_latitude,
+                        user_longitude=user_longitude,
+                        radius_km=radius_km,
                         min_score=min_score,
                         collection_name=collection_name,
                     )
@@ -343,7 +391,18 @@ class RetrievalEngine:
                     extra={"error_type": type(exc).__name__},
                 )
 
-        documents = self._fuse_rankings(result_groups, top_k=top_k)
+        fusion_limit = max(top_k * 5, 20) if location_filter_active else top_k
+        documents = self._fuse_rankings(
+            result_groups,
+            top_k=fusion_limit,
+        )
+        documents = self._rank_with_location(
+            documents,
+            top_k=top_k,
+            user_latitude=user_latitude,
+            user_longitude=user_longitude,
+            radius_km=radius_km,
+        )
         branch_counts = {
             branch: len(results)
             for branch, results in result_groups.items()
@@ -365,6 +424,27 @@ class RetrievalEngine:
             branch_errors=branch_errors,
         )
 
+    @staticmethod
+    def _build_lexical_query(
+        query: str,
+        district_filter: Optional[str],
+    ) -> str:
+        normalized_query = normalize_text(query)
+        normalized_district = normalize_text(district_filter)
+        if normalized_district:
+            normalized_query = (
+                f" {normalized_query} "
+                .replace(f" {normalized_district} ", " ")
+                .strip()
+            )
+
+        unigrams = [
+            term
+            for term in lexical_terms(normalized_query)
+            if "_" not in term
+        ]
+        return " ".join(unigrams) or normalize_text(query)
+
     def _semantic_search(
         self,
         query: str,
@@ -374,6 +454,9 @@ class RetrievalEngine:
         price_min_filter: Optional[int],
         price_max_filter: Optional[int],
         open_at_filter: Optional[str],
+        user_latitude: Optional[float],
+        user_longitude: Optional[float],
+        radius_km: Optional[float],
         min_score: float,
         collection_name: Optional[str],
     ) -> tuple[List[Dict[str, Any]], int]:
@@ -386,6 +469,9 @@ class RetrievalEngine:
             category=category_filter,
             price_min=price_min_filter,
             price_max=price_max_filter,
+            user_latitude=user_latitude,
+            user_longitude=user_longitude,
+            radius_km=radius_km,
         )
 
         candidate_limit = min(max(top_k * 2, 40), 80)
@@ -596,7 +682,17 @@ class RetrievalEngine:
         return results[:top_k]
 
     def check_ready(self) -> None:
-        self.client.get_collection(self.collection_name)
+        collection = self.client.get_collection(self.collection_name)
+        location_schema = (
+            getattr(collection, "payload_schema", {}) or {}
+        ).get("location")
+        if (
+            getattr(location_schema, "data_type", None)
+            != PayloadSchemaType.GEO
+        ):
+            raise RetrievalConfigurationError(
+                "Qdrant collection is missing the required location GEO index."
+            )
         lexical_index = getattr(self, "lexical_index", None)
         expected_version = getattr(
             lexical_index,
@@ -633,12 +729,87 @@ class RetrievalEngine:
             client.close()
 
     @staticmethod
+    def _validate_location_filter(
+        *,
+        user_latitude: Optional[float],
+        user_longitude: Optional[float],
+        radius_km: Optional[float],
+    ) -> bool:
+        provided = (
+            user_latitude is not None,
+            user_longitude is not None,
+            radius_km is not None,
+        )
+        if not any(provided):
+            return False
+        if not all(provided):
+            raise ValueError(
+                "Location filtering requires latitude, longitude and radius_km."
+            )
+        if not valid_coordinates(user_latitude, user_longitude):
+            raise ValueError("Location filtering received invalid coordinates.")
+        if not MIN_RADIUS_KM <= float(radius_km) <= MAX_RADIUS_KM:
+            raise ValueError(
+                f"radius_km must be between {MIN_RADIUS_KM} and {MAX_RADIUS_KM}."
+            )
+        return True
+
+    @staticmethod
+    def _rank_with_location(
+        documents: List[Dict[str, Any]],
+        *,
+        top_k: int,
+        user_latitude: Optional[float],
+        user_longitude: Optional[float],
+        radius_km: Optional[float],
+    ) -> List[Dict[str, Any]]:
+        if user_latitude is None:
+            return documents[:top_k]
+
+        ranked_documents = []
+        for document in documents:
+            place_distance = distance_km(
+                user_latitude,
+                user_longitude,
+                document.get("latitude"),
+                document.get("longitude"),
+            )
+            if place_distance is None or place_distance > float(radius_km):
+                continue
+
+            result = document.copy()
+            proximity_score = max(
+                0.0,
+                1.0 - (place_distance / float(radius_km)),
+            )
+            result["distance_km"] = round(place_distance, 2)
+            result["proximity_score"] = round(proximity_score, 6)
+            result["ranking_score"] = round(
+                float(result.get("ranking_score", 0.0))
+                + (proximity_score * 0.015),
+                8,
+            )
+            ranked_documents.append(result)
+
+        ranked_documents.sort(
+            key=lambda document: (
+                document.get("ranking_score", 0.0),
+                -document.get("distance_km", float("inf")),
+            ),
+            reverse=True,
+        )
+        return ranked_documents[:top_k]
+
+    @staticmethod
     def _build_filter(
         district: Optional[str],
         domain: Optional[str],
         category: Optional[str],
         price_min: Optional[int] = None,
         price_max: Optional[int] = None,
+        user_latitude: Optional[float] = None,
+        user_longitude: Optional[float] = None,
+        radius_km: Optional[float] = None,
     ) -> Optional[Filter]:
         conditions = []
 
@@ -682,6 +853,20 @@ class RetrievalEngine:
                 FieldCondition(
                     key="price_max",
                     range=Range(gte=price_min),
+                )
+            )
+
+        if user_latitude is not None:
+            conditions.append(
+                FieldCondition(
+                    key="location",
+                    geo_radius=GeoRadius(
+                        center=GeoPoint(
+                            lat=float(user_latitude),
+                            lon=float(user_longitude),
+                        ),
+                        radius=float(radius_km) * 1000,
+                    ),
                 )
             )
 
@@ -751,11 +936,26 @@ class RetrievalEngine:
                 opening_data["opening_schedule_scope"],
             ),
             "tags": value("tags", []),
+            "aliases": value("aliases", []),
+            "cuisines": value("cuisines", []),
+            "district_source": value("district_source", None),
+            "address_source": value("address_source", None),
+            "latitude": value("latitude", None),
+            "longitude": value("longitude", None),
+            "phone": value("phone", None),
+            "website": value("website", None),
+            "image_url": value("image_url", None),
+            "image_source_url": value("image_source_url", None),
+            "image_license": value("image_license", None),
+            "image_attribution": value("image_attribution", None),
+            "image_kind": value("image_kind", None),
             "source_name": value("source_name", None),
             "source_url": value("source_url", None),
+            "source_id": value("source_id", None),
             "retrieved_at": value("retrieved_at", None),
             "last_verified_at": value("last_verified_at", None),
             "license": value("license", None),
+            "license_url": value("license_url", None),
             "verification_status": value(
                 "verification_status",
                 "unknown",

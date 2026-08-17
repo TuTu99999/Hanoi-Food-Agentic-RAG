@@ -1,9 +1,12 @@
 import re
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
+from langsmith import tracing_context
 
+from embedding.geo import MAX_RADIUS_KM, MIN_RADIUS_KM, valid_coordinates
 from embedding.text_utils import normalize_text
 from rag.query_router import QueryRouter
 
@@ -11,7 +14,7 @@ from rag.query_router import QueryRouter
 FOOD_DOMAIN = "food"
 TOP_K = 5
 EXACT_EVIDENCE_THRESHOLD = 0.84
-KEYWORD_EVIDENCE_THRESHOLD = 0.35
+KEYWORD_EVIDENCE_THRESHOLD = 0.60
 DEFAULT_ROUTER_CONFIDENCE_THRESHOLD = 0.35
 
 SUFFICIENT = "sufficient"
@@ -23,6 +26,23 @@ TOOL_ERROR = "tool_error"
 OUT_OF_SCOPE = "out_of_scope"
 
 HYBRID_SEARCH_MODES = ("exact", "keyword", "semantic")
+DEFAULT_NEARBY_RADIUS_KM = 3.0
+NEARBY_PHRASES = (
+    "gan toi",
+    "gan minh",
+    "gan t",
+    "gan cho toi",
+    "gan cho minh",
+    "gan cho t",
+    "gan day",
+    "quanh day",
+    "quanh toi",
+    "quanh minh",
+    "xung quanh toi",
+    "xung quanh minh",
+    "vi tri hien tai",
+    "near me",
+)
 
 HANOI_DISTRICTS = (
     "Hoàn Kiếm",
@@ -198,6 +218,25 @@ ACCENTED_FOOD_SIGNAL_PHRASES = (
     "món",
     "quán",
 )
+SPECIFIC_FOOD_PHRASES = (
+    "banh",
+    "bun",
+    "ca phe",
+    "cafe",
+    "chao ga",
+    "chao long",
+    "chao suon",
+    "che",
+    "com",
+    "hai san",
+    "lau",
+    "nuong",
+    "oc",
+    "pho",
+    "pizza",
+    "sushi",
+    "xoi",
+)
 
 
 class AgenticRAGState(TypedDict, total=False):
@@ -210,6 +249,10 @@ class AgenticRAGState(TypedDict, total=False):
     price_min_filter: int | None
     price_max_filter: int | None
     open_at_filter: str | None
+    user_latitude: float | None
+    user_longitude: float | None
+    radius_km: float | None
+    nearby_requested: bool
     requested_fields: tuple[str, ...]
     has_food_signal: bool
 
@@ -261,6 +304,8 @@ class AgenticRAGResult:
     price_min_filter: int | None
     price_max_filter: int | None
     open_at_filter: str | None
+    radius_km: float | None
+    nearby_filter_applied: bool
 
     @property
     def should_generate(self) -> bool:
@@ -321,9 +366,19 @@ class AgenticRAGWorkflow:
         history: list[dict[str, str]] | None = None,
         collection_name: str | None = None,
         search_query: str | None = None,
+        user_latitude: float | None = None,
+        user_longitude: float | None = None,
+        radius_km: float | None = None,
     ) -> AgenticRAGResult:
         if not isinstance(query, str) or not query.strip():
             raise ValueError("query must not be empty")
+        nearby_filter_applied = self._validate_nearby_filter(
+            user_latitude=user_latitude,
+            user_longitude=user_longitude,
+            radius_km=radius_km,
+        )
+        if nearby_filter_applied and radius_km is None:
+            radius_km = DEFAULT_NEARBY_RADIUS_KM
 
         graph_input = {
             "original_query": query.strip(),
@@ -340,6 +395,9 @@ class AgenticRAGWorkflow:
             "price_min_filter": None,
             "price_max_filter": None,
             "open_at_filter": None,
+            "user_latitude": user_latitude,
+            "user_longitude": user_longitude,
+            "radius_km": radius_km,
             "retry_count": 0,
             "documents": [],
             "candidate_count": 0,
@@ -352,17 +410,25 @@ class AgenticRAGWorkflow:
             "answer_mode": "direct",
             "direct_answer": None,
         }
-        final_state = self.graph.invoke(
-            graph_input,
-            config={
-                "run_name": "agentic_hybrid_rag",
-                "tags": ["food", "hybrid-retrieval"],
-                "metadata": {
-                    "collection": collection_name or "default",
-                    "district": district or "all",
-                },
-            },
+        trace_context = (
+            tracing_context(enabled=False)
+            if nearby_filter_applied
+            else nullcontext()
         )
+        with trace_context:
+            final_state = self.graph.invoke(
+                graph_input,
+                config={
+                    "run_name": "agentic_hybrid_rag",
+                    "tags": ["food", "hybrid-retrieval"],
+                    "metadata": {
+                        "collection": collection_name or "default",
+                        "district": district or "all",
+                        "nearby": nearby_filter_applied,
+                        "radius_km": radius_km,
+                    },
+                },
+            )
         return AgenticRAGResult(
             answer_mode=final_state.get("answer_mode", "direct"),
             direct_answer=final_state.get("direct_answer"),
@@ -397,6 +463,10 @@ class AgenticRAGWorkflow:
             price_min_filter=final_state.get("price_min_filter"),
             price_max_filter=final_state.get("price_max_filter"),
             open_at_filter=final_state.get("open_at_filter"),
+            radius_km=final_state.get("radius_km"),
+            nearby_filter_applied=bool(
+                final_state.get("user_latitude") is not None
+            ),
         )
 
     def _analyze_node(self, state: AgenticRAGState) -> dict[str, Any]:
@@ -427,6 +497,12 @@ class AgenticRAGWorkflow:
         previous_query = self._previous_user_query(
             state.get("history", [])
         )
+        query_radius = self._extract_radius_km(query)
+        nearby_requested = (
+            state.get("user_latitude") is not None
+            or self._requests_nearby(query)
+            or query_radius is not None
+        )
         district = self._resolve_district(
             query=query,
             provided_district=state.get("district"),
@@ -448,6 +524,8 @@ class AgenticRAGWorkflow:
             "price_min_filter": price_min,
             "price_max_filter": price_max,
             "open_at_filter": self._extract_open_at(query),
+            "radius_km": query_radius or state.get("radius_km"),
+            "nearby_requested": nearby_requested,
             "has_food_signal": self._has_food_signal(query),
             "intent": intent,
             "intent_confidence": confidence,
@@ -458,6 +536,22 @@ class AgenticRAGWorkflow:
     def _plan_node(self, state: AgenticRAGState) -> dict[str, Any]:
         intent = state.get("intent", "unknown")
         trusted_intent = bool(state.get("trusted_intent"))
+
+        if (
+            state.get("nearby_requested")
+            and state.get("user_latitude") is None
+        ):
+            return {
+                "search_modes": (),
+                "allow_exact_shortcut": False,
+                "should_retrieve": False,
+                "answer_mode": "direct",
+                "direct_answer": (
+                    "Bạn hãy bấm “Gần tôi” và cấp quyền vị trí để mình "
+                    "tìm quán theo bán kính mong muốn."
+                ),
+                "evidence_reason": HARD_FILTER_EMPTY,
+            }
 
         if trusted_intent and intent == "chitchat":
             return {
@@ -509,6 +603,9 @@ class AgenticRAGWorkflow:
                 price_min_filter=state.get("price_min_filter"),
                 price_max_filter=state.get("price_max_filter"),
                 open_at_filter=state.get("open_at_filter"),
+                user_latitude=state.get("user_latitude"),
+                user_longitude=state.get("user_longitude"),
+                radius_km=state.get("radius_km"),
                 min_score=self.min_score,
                 collection_name=state.get("collection_name"),
                 search_modes=state.get(
@@ -559,6 +656,7 @@ class AgenticRAGWorkflow:
             or state.get("price_min_filter") is not None
             or state.get("price_max_filter") is not None
             or state.get("open_at_filter")
+            or state.get("user_latitude") is not None
         )
 
         if state.get("retrieval_failed"):
@@ -589,12 +687,17 @@ class AgenticRAGWorkflow:
             return self._low_relevance_result(state)
 
         allow_keyword_evidence = bool(state.get("has_food_signal"))
+        require_keyword_support = (
+            state.get("intent") == "food_search"
+            and self._has_specific_food_signal(state["original_query"])
+        )
         evidence_documents = [
             document
             for document in documents
             if self._has_sufficient_score(
                 document,
                 allow_keyword_evidence=allow_keyword_evidence,
+                require_keyword_support=require_keyword_support,
             )
         ]
         if not evidence_documents:
@@ -673,6 +776,9 @@ class AgenticRAGWorkflow:
             "price_min_filter": state.get("price_min_filter"),
             "price_max_filter": state.get("price_max_filter"),
             "open_at_filter": state.get("open_at_filter"),
+            "user_latitude": state.get("user_latitude"),
+            "user_longitude": state.get("user_longitude"),
+            "radius_km": state.get("radius_km"),
         }
 
     @staticmethod
@@ -741,6 +847,60 @@ class AgenticRAGWorkflow:
             )
         )
         return confidence >= threshold
+
+    @staticmethod
+    def _validate_nearby_filter(
+        *,
+        user_latitude: float | None,
+        user_longitude: float | None,
+        radius_km: float | None,
+    ) -> bool:
+        coordinates_provided = (
+            user_latitude is not None,
+            user_longitude is not None,
+        )
+        if not any(coordinates_provided):
+            if radius_km is not None:
+                raise ValueError("radius_km requires user coordinates")
+            return False
+        if not all(coordinates_provided):
+            raise ValueError("Both user coordinates are required")
+        if not valid_coordinates(user_latitude, user_longitude):
+            raise ValueError("Invalid user coordinates")
+        effective_radius = (
+            DEFAULT_NEARBY_RADIUS_KM
+            if radius_km is None
+            else float(radius_km)
+        )
+        if not MIN_RADIUS_KM <= effective_radius <= MAX_RADIUS_KM:
+            raise ValueError(
+                f"radius_km must be between {MIN_RADIUS_KM} and {MAX_RADIUS_KM}"
+            )
+        return True
+
+    @staticmethod
+    def _requests_nearby(query: str) -> bool:
+        normalized_query = f" {normalize_text(query)} "
+        return any(
+            f" {phrase} " in normalized_query
+            for phrase in NEARBY_PHRASES
+        )
+
+    @staticmethod
+    def _extract_radius_km(query: str) -> float | None:
+        normalized_query = query.casefold().replace(",", ".")
+        match = re.search(
+            r"\b(\d+(?:\.\d+)?)\s*(km|kilomet|kilometer|mét|met|m)\b",
+            normalized_query,
+        )
+        if not match:
+            return None
+
+        value = float(match.group(1))
+        radius = value / 1000 if match.group(2) in {"m", "met", "mét"} else value
+        if MIN_RADIUS_KM <= radius <= MAX_RADIUS_KM:
+            return radius
+        return None
 
     @staticmethod
     def _resolve_district(
@@ -986,11 +1146,20 @@ class AgenticRAGWorkflow:
         )
         return normalized_match or accented_match
 
+    @staticmethod
+    def _has_specific_food_signal(query: str) -> bool:
+        normalized_query = f" {normalize_text(query)} "
+        return any(
+            f" {phrase} " in normalized_query
+            for phrase in SPECIFIC_FOOD_PHRASES
+        )
+
     def _has_sufficient_score(
         self,
         document: dict[str, Any],
         *,
         allow_keyword_evidence: bool,
+        require_keyword_support: bool = False,
     ) -> bool:
         exact_score = self._safe_float(document.get("exact_score", 0.0))
         semantic_score = self._safe_float(
@@ -1002,13 +1171,20 @@ class AgenticRAGWorkflow:
         keyword_coverage = self._safe_float(
             document.get("keyword_coverage", 0.0)
         )
-        return (
-            exact_score >= EXACT_EVIDENCE_THRESHOLD
-            or semantic_score >= self.min_score
-            or (
-                allow_keyword_evidence
+        keyword_match = (
+            allow_keyword_evidence
+            and keyword_coverage >= KEYWORD_EVIDENCE_THRESHOLD
+        )
+        semantic_match = semantic_score >= self.min_score
+        if require_keyword_support:
+            semantic_match = (
+                semantic_match
                 and keyword_coverage >= KEYWORD_EVIDENCE_THRESHOLD
             )
+        return (
+            exact_score >= EXACT_EVIDENCE_THRESHOLD
+            or semantic_match
+            or keyword_match
         )
 
     @staticmethod

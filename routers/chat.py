@@ -14,7 +14,7 @@ from core.security import get_current_user
 from database.connection import get_db
 from database.models import UserModel
 from embedding.text_utils import normalize_text
-from schemas.chat import ChatRequest, ChatResponse
+from schemas.chat import ChatRequest, ChatResponse, NearbySearch
 from services.chat_service import (
     ChatBudgetExceededError,
     ChatIdempotencyConflictError,
@@ -145,16 +145,28 @@ def _run_rag(
     question: str,
     district: str | None,
     history: list[dict[str, str]],
+    nearby: NearbySearch | None = None,
 ) -> str:
     answer = rag_pipeline.run(
         user_question=question,
         collection_name=RAG_COLLECTION_NAME,
         district=district,
         history=history,
+        **_nearby_kwargs(nearby),
     )
     if not isinstance(answer, str) or not answer.strip():
         raise RuntimeError("RAG trả về nội dung rỗng.")
     return answer
+
+
+def _nearby_kwargs(nearby: NearbySearch | None) -> dict[str, float]:
+    if nearby is None:
+        return {}
+    return {
+        "user_latitude": nearby.latitude,
+        "user_longitude": nearby.longitude,
+        "radius_km": nearby.radius_km,
+    }
 
 
 def _sse_event(event: str, data: dict) -> str:
@@ -224,6 +236,7 @@ def chat_with_rag(
             payload.question,
             effective_district,
             prepared_turn.history,
+            payload.nearby,
         )
         assistant_payload = update_assistant_message_task(
             user_id=user_id,
@@ -400,6 +413,7 @@ async def chat_stream(
                 collection_name=RAG_COLLECTION_NAME,
                 district=effective_district,
                 history=history,
+                **_nearby_kwargs(payload.nearby),
             )
 
             while True:
