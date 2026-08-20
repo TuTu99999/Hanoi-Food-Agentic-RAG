@@ -22,14 +22,16 @@ from services.chat_service import (
     prepare_chat_turn_task,
     update_assistant_message_task,
 )
-from services.chat_stream_service import generate_chat_stream
+from services.chat_stream_service import (
+    LLM_TIMEOUT_MESSAGE,
+    generate_chat_stream,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat", tags=["RAG Chat"])
 
 RAG_COLLECTION_NAME = settings.QDRANT_COLLECTION
 RAG_ERROR_MESSAGE = "Xin lỗi, hệ thống chưa thể hoàn tất câu trả lời."
-
 HANOI_DISTRICTS = [
     "Hoàn Kiếm",
     "Ba Đình",
