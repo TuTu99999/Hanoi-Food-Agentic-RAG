@@ -1,8 +1,11 @@
-# Agentic Hybrid RAG Food Hà Nội
+# Trợ lý học tập Agentic AI đa tác tử
 
-Ứng dụng gồm FastAPI, React/Vite, PostgreSQL, Qdrant, LangGraph,
-Prometheus/Grafana và một Agentic Hybrid RAG tập trung vào ẩm thực Hà Nội. LLM
-dùng Gemini qua OpenAI-compatible API.
+Đồ án phát triển trợ lý học tập đa tác tử cho các môn lý luận chính trị bằng
+FastAPI, PostgreSQL, Qdrant, LangGraph và Gemini/Kimi qua OpenAI-compatible API.
+Luồng ẩm thực Hà Nội cũ vẫn được giữ làm baseline trong thời gian chuyển đổi;
+phần học thuật mới nằm trong `academic_agents/`, `academic_retrieval/`,
+`assessment/`, `planning/`, `automation/`, `academic_mcp/` và các tài liệu
+`docs/phase-*`.
 
 Mỗi địa điểm được đề xuất có nút mở Google Maps. Link ưu tiên địa chỉ đường/số
 nhà vì tọa độ cộng đồng OSM có thể sai lệch, và chỉ dùng tọa độ làm fallback khi
@@ -92,7 +95,7 @@ alembic upgrade head
 ```
 
 Khi `DB_SCHEMA_CHECK=true` (mặc định), backend sẽ từ chối khởi động nếu database
-chưa ở revision `20260729_0004`; nhờ đó code mới không vô tình chạy trên bảng
+chưa ở revision `20260826_0008`; nhờ đó code mới không vô tình chạy trên bảng
 `messages` cũ.
 
 Migration P0 chuyển mỗi bản ghi lịch sử cũ `{question, answer}` thành hai
@@ -314,6 +317,26 @@ Hai lệnh live cần collection Qdrant đã có dữ liệu và token LLM. Khô
 LLM judge làm gate duy nhất vì kết quả có dao động; unit test, Recall@K, MRR,
 router accuracy và hard constraint deterministic vẫn là các kiểm tra chất lượng
 chính. Live evaluation hiện được chạy thủ công ở local để dùng Qdrant sẵn có.
+
+## MCP server học thuật
+
+Giai đoạn 9 cung cấp một stdio MCP server dùng chung cho mọi môn chính trị với
+8 structured tools. Cấu hình một `users.id` local đã tồn tại:
+
+```dotenv
+ACADEMIC_MCP_USER_ID=1
+```
+
+Chạy server hoặc kiểm tra contract:
+
+```powershell
+python academic_mcp_server.py
+python -m scripts.evaluate_academic_mcp_contract
+```
+
+MCP tool schema không nhận `user_id`; identity được khóa vào process để agent
+không thể tự chọn user khác. Xem thiết kế, tool catalog và cấu hình MCP host tại
+`docs/phase-9-academic-mcp.md`.
 
 ## Docker
 

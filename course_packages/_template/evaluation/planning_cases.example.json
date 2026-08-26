@@ -1,0 +1,35 @@
+[
+  {
+    "case_id": "plan_pass_001",
+    "mastery_by_concept": {
+      "sample_foundation": 0.9,
+      "sample_concept": 0.2
+    },
+    "mastery_threshold": 0.8,
+    "start_date": "2026-09-01",
+    "target_date": "2026-09-04",
+    "study_days": 3,
+    "minutes_per_day": 60,
+    "focus_concept_ids": [],
+    "expected_status": "PASS",
+    "expected_priority_concept_ids": [
+      "sample_foundation",
+      "sample_concept"
+    ]
+  },
+  {
+    "case_id": "plan_block_capacity_001",
+    "mastery_by_concept": {},
+    "mastery_threshold": 0.8,
+    "start_date": "2026-09-01",
+    "target_date": "2026-09-02",
+    "study_days": 1,
+    "minutes_per_day": 15,
+    "focus_concept_ids": [],
+    "expected_status": "BLOCK",
+    "expected_priority_concept_ids": [
+      "sample_foundation",
+      "sample_concept"
+    ]
+  }
+]

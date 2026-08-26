@@ -15,6 +15,10 @@ from core.resilience import (
 )
 from embedding.text_utils import normalize_text
 from langsmith import traceable
+from llm.provider import (
+    OpenAICompatibleProvider,
+    provider_config_from_settings,
+)
 from rag.map_links import append_directions_links
 from rag.tracing import (
     reduce_stream,
@@ -88,7 +92,7 @@ class RAGPipeline:
         """
         if not settings.LLM_API_KEY:
             raise RAGConfigurationError(
-                "Không tìm thấy LLM_API_KEY hoặc GEMINI_API_KEY."
+                "Không tìm thấy API key cho LLM provider đã chọn."
             )
 
         self.retriever = None
@@ -96,21 +100,18 @@ class RAGPipeline:
         self.agentic_workflow = None
         self._agentic_workflow_lock = threading.Lock()
 
-        client_options = {
-            "base_url": settings.LLM_BASE_URL,
-            "api_key": settings.LLM_API_KEY,
-            "timeout": settings.LLM_TIMEOUT_SECONDS,
-            "max_retries": 0,
-        }
-        self.ai_client = wrap_openai_if_enabled(
-            OpenAI(**client_options),
-            settings.LANGSMITH_TRACING,
+        self.llm_provider = OpenAICompatibleProvider(
+            provider_config_from_settings(settings),
+            sync_client_factory=OpenAI,
+            async_client_factory=AsyncOpenAI,
+            client_wrapper=lambda client: wrap_openai_if_enabled(
+                client,
+                settings.LANGSMITH_TRACING,
+            ),
         )
-        self.async_ai_client = wrap_openai_if_enabled(
-            AsyncOpenAI(**client_options),
-            settings.LANGSMITH_TRACING,
-        )
-        self.llm_model = settings.LLM_MODEL
+        self.ai_client = self.llm_provider.sync_client
+        self.async_ai_client = self.llm_provider.async_client
+        self.llm_model = self.llm_provider.model
         self.llm_circuit_breaker = CircuitBreaker(
             failure_threshold=settings.CIRCUIT_BREAKER_FAILURES,
             reset_seconds=settings.CIRCUIT_BREAKER_RESET_SECONDS,

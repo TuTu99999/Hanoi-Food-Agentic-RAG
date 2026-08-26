@@ -1,0 +1,28 @@
+{
+  "selection_cases": [
+    {
+      "case_id": "select_weak_concept_001",
+      "mastery_by_concept": {
+        "sample_concept": 0.2
+      },
+      "attempt_count_by_question": {},
+      "target_concept_id": null,
+      "expected_concept_id": "sample_concept",
+      "expected_question_id": "sample_concept_q001"
+    }
+  ],
+  "grading_cases": [
+    {
+      "case_id": "grade_correct_001",
+      "question_id": "sample_concept_q001",
+      "selected_option_id": "A",
+      "expected_is_correct": true
+    },
+    {
+      "case_id": "grade_incorrect_001",
+      "question_id": "sample_concept_q001",
+      "selected_option_id": "B",
+      "expected_is_correct": false
+    }
+  ]
+}

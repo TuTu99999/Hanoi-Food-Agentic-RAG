@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "course_id": "sample_political_course",
+  "course_version": "1.0.0",
+  "concepts": [
+    {
+      "concept_id": "sample_foundation",
+      "concept_name": "Khái niệm nền tảng mẫu",
+      "order": 1,
+      "estimated_minutes": 60,
+      "prerequisite_ids": [],
+      "learning_objective": "Trình bày được nội dung của khái niệm nền tảng.",
+      "citation": {
+        "document_id": "official_textbook",
+        "document_title": "Giáo trình chính thức",
+        "source_path": "documents/textbook.md",
+        "source_type": "official_textbook",
+        "source_authority": "Cơ quan hoặc nhà xuất bản",
+        "publication_year": 2025,
+        "section_title": "Chương 1",
+        "start_line": 1,
+        "end_line": 10
+      }
+    },
+    {
+      "concept_id": "sample_concept",
+      "concept_name": "Khái niệm mẫu",
+      "order": 2,
+      "estimated_minutes": 90,
+      "prerequisite_ids": ["sample_foundation"],
+      "learning_objective": "Giải thích và vận dụng được khái niệm mẫu.",
+      "citation": {
+        "document_id": "official_textbook",
+        "document_title": "Giáo trình chính thức",
+        "source_path": "documents/textbook.md",
+        "source_type": "official_textbook",
+        "source_authority": "Cơ quan hoặc nhà xuất bản",
+        "publication_year": 2025,
+        "section_title": "Chương 1",
+        "start_line": 11,
+        "end_line": 30
+      }
+    }
+  ]
+}

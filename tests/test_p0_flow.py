@@ -39,6 +39,8 @@ from core.security import create_access_token
 from database.connection import Base, SessionLocal, engine
 from database.models import (
     ChatSessionModel,
+    CourseModel,
+    CourseVersionModel,
     MessageModel,
     RateLimitBucketModel,
     UserModel,
@@ -202,6 +204,8 @@ class P0FlowTests(unittest.TestCase):
     def setUp(self):
         database = SessionLocal()
         try:
+            database.query(CourseVersionModel).delete()
+            database.query(CourseModel).delete()
             database.query(MessageModel).delete()
             database.query(ChatSessionModel).delete()
             database.query(RateLimitBucketModel).delete()
@@ -274,6 +278,51 @@ class P0FlowTests(unittest.TestCase):
             stolen_token_client.get("/api/auth/me").status_code,
             401,
         )
+
+    def test_course_registry_api_requires_manager_and_registers_manifest(self):
+        client = self.register_and_login("course-manager")
+        manifest = {
+            "course_id": "political_philosophy",
+            "name": "Triết học Mác - Lênin",
+            "domain": "political_theory",
+            "version": "1.0.0",
+            "language": "vi",
+        }
+
+        forbidden = client.post("/api/courses", json=manifest)
+        self.assertEqual(forbidden.status_code, 403)
+
+        database = SessionLocal()
+        try:
+            database.query(UserModel).filter(
+                UserModel.username == "course-manager"
+            ).update({UserModel.is_content_manager: True})
+            database.commit()
+        finally:
+            database.close()
+
+        validation = client.post(
+            "/api/courses/validate-manifest",
+            json=manifest,
+        )
+        self.assertEqual(validation.status_code, 200)
+        self.assertTrue(validation.json()["valid"])
+
+        created = client.post("/api/courses", json=manifest)
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.json()["course_id"], "political_philosophy")
+        self.assertEqual(created.json()["versions"][0]["status"], "DRAFT")
+
+        listed = client.get("/api/courses")
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(len(listed.json()), 1)
+
+        detail = client.get("/api/courses/political_philosophy")
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json()["versions"][0]["version"], "1.0.0")
+
+        duplicate = client.post("/api/courses", json=manifest)
+        self.assertEqual(duplicate.status_code, 409)
 
     def test_auth_rate_limit_and_trusted_host(self):
         rejected_host = TestClient(

@@ -36,6 +36,7 @@ postgres_data/
 data/final/hanoi_knowledge_v*.json
 data/final/hanoi_food_v*.json
 data/final/hanoi_food_*.json
+data/courses/*/*/indexed/
 
 # Local third-party imports must be reviewed before they are committed.
 data/imports/

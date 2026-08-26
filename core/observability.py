@@ -71,6 +71,20 @@ class JsonFormatter(logging.Formatter):
             "exact_shortcut_used",
             "service",
             "deleted_count",
+            "agent",
+            "tool",
+            "agent_status",
+            "course_id",
+            "course_version",
+            "concept_id",
+            "question_id",
+            "difficulty",
+            "is_correct",
+            "concept_count",
+            "scheduled_minutes",
+            "capacity_minutes",
+            "revision_count",
+            "evidence_count",
         ):
             if hasattr(record, field_name):
                 payload[field_name] = getattr(record, field_name)

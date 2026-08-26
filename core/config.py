@@ -174,6 +174,36 @@ def _get_qdrant_connection() -> tuple[str, int, str]:
 
 _qdrant_host, _qdrant_port, _qdrant_url = _get_qdrant_connection()
 
+LLM_PROVIDER_DEFAULTS = {
+    "gemini": {
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "model": "gemini-3.6-flash",
+        "reasoning_effort": "minimal",
+    },
+    "kimi": {
+        "base_url": "https://api.moonshot.ai/v1",
+        "model": "kimi-k3",
+        "reasoning_effort": "low",
+    },
+}
+_llm_provider = os.getenv("LLM_PROVIDER", "gemini").strip().lower()
+_llm_defaults = LLM_PROVIDER_DEFAULTS.get(
+    _llm_provider,
+    LLM_PROVIDER_DEFAULTS["gemini"],
+)
+
+
+def _get_llm_api_key(provider: str) -> str:
+    generic_key = os.getenv("LLM_API_KEY", "").strip()
+    if generic_key:
+        return generic_key
+    if provider == "kimi":
+        return (
+            os.getenv("KIMI_API_KEY", "").strip()
+            or os.getenv("MOONSHOT_API_KEY", "").strip()
+        )
+    return os.getenv("GEMINI_API_KEY", "").strip()
+
 
 class Settings:
     APP_ENV: str = _app_env
@@ -215,10 +245,8 @@ class Settings:
         os.getenv("AUTH_COOKIE_DOMAIN", "").strip() or None
     )
 
-    LLM_API_KEY: str = (
-        os.getenv("LLM_API_KEY", "").strip()
-        or os.getenv("GEMINI_API_KEY", "").strip()
-    )
+    LLM_PROVIDER: str = _llm_provider
+    LLM_API_KEY: str = _get_llm_api_key(LLM_PROVIDER)
     LANGSMITH_API_KEY: str = _langsmith_api_key
     LANGSMITH_TRACING: bool = _langsmith_tracing_enabled
     LANGSMITH_PROJECT: str = os.getenv(
@@ -233,15 +261,18 @@ class Settings:
         "LANGSMITH_WORKSPACE_ID",
         "",
     ).strip()
-    LLM_BASE_URL: str = os.getenv(
-        "LLM_BASE_URL",
-        "https://generativelanguage.googleapis.com/v1beta/openai",
-    ).strip().rstrip("/")
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "gemini-3.6-flash").strip()
-    LLM_REASONING_EFFORT: str = os.getenv(
-        "LLM_REASONING_EFFORT",
-        "minimal",
-    ).strip().lower()
+    LLM_BASE_URL: str = (
+        os.getenv("LLM_BASE_URL", "").strip()
+        or _llm_defaults["base_url"]
+    ).rstrip("/")
+    LLM_MODEL: str = (
+        os.getenv("LLM_MODEL", "").strip()
+        or _llm_defaults["model"]
+    )
+    LLM_REASONING_EFFORT: str = (
+        os.getenv("LLM_REASONING_EFFORT", "").strip().lower()
+        or _llm_defaults["reasoning_effort"]
+    )
     LLM_MAX_OUTPUT_TOKENS: int = _get_int_env(
         "LLM_MAX_OUTPUT_TOKENS",
         800,
@@ -254,6 +285,22 @@ class Settings:
     EMBEDDING_LOCAL_FILES_ONLY: bool = _get_bool_env(
         "EMBEDDING_LOCAL_FILES_ONLY",
         True,
+    )
+    ACADEMIC_AGENT_ENABLED: bool = _get_bool_env(
+        "ACADEMIC_AGENT_ENABLED",
+        False,
+    )
+    COURSE_DATA_ROOT: str = os.getenv(
+        "COURSE_DATA_ROOT",
+        "data/courses",
+    ).strip()
+    ACADEMIC_AGENT_MAX_REVISIONS: int = _get_int_env(
+        "ACADEMIC_AGENT_MAX_REVISIONS",
+        2,
+    )
+    ACADEMIC_AGENT_TOP_K: int = _get_int_env(
+        "ACADEMIC_AGENT_TOP_K",
+        5,
     )
 
     QDRANT_HOST: str = _qdrant_host
@@ -419,9 +466,13 @@ def _validate_settings(config: Settings) -> None:
             "TRUSTED_HOSTS may only contain hostnames or wildcard domains."
         )
 
+    if config.LLM_PROVIDER not in LLM_PROVIDER_DEFAULTS:
+        raise ConfigurationError(
+            "LLM_PROVIDER chỉ hỗ trợ gemini hoặc kimi."
+        )
     if not config.LLM_API_KEY:
         raise ConfigurationError(
-            "Chưa khai báo LLM_API_KEY hoặc GEMINI_API_KEY."
+            "Chưa khai báo API key cho LLM provider đã chọn."
         )
     if not config.LLM_MODEL:
         raise ConfigurationError(
@@ -433,6 +484,7 @@ def _validate_settings(config: Settings) -> None:
         "low",
         "medium",
         "high",
+        "max",
     }:
         raise ConfigurationError(
             "LLM_REASONING_EFFORT không hợp lệ."
@@ -445,6 +497,14 @@ def _validate_settings(config: Settings) -> None:
         raise ConfigurationError(
             "[Lỗi Cấu Hình] EMBEDDING_MODEL không được để trống."
         )
+    if not config.COURSE_DATA_ROOT:
+        raise ConfigurationError("COURSE_DATA_ROOT không được để trống.")
+    if not 0 <= config.ACADEMIC_AGENT_MAX_REVISIONS <= 2:
+        raise ConfigurationError(
+            "ACADEMIC_AGENT_MAX_REVISIONS phải từ 0 đến 2."
+        )
+    if not 1 <= config.ACADEMIC_AGENT_TOP_K <= 8:
+        raise ConfigurationError("ACADEMIC_AGENT_TOP_K phải từ 1 đến 8.")
     if config.LLM_TIMEOUT_SECONDS <= 0:
         raise ConfigurationError(
             "[Lỗi Cấu Hình] LLM_TIMEOUT_SECONDS phải lớn hơn 0."

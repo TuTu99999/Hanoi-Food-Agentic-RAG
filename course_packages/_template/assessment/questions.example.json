@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "course_id": "sample_political_course",
+  "course_version": "1.0.0",
+  "bkt": {
+    "p_initial": 0.2,
+    "p_learn": 0.15,
+    "p_guess": 0.2,
+    "p_slip": 0.1,
+    "mastery_threshold": 0.8
+  },
+  "questions": [
+    {
+      "question_id": "sample_concept_q001",
+      "concept_id": "sample_concept",
+      "concept_name": "Khái niệm mẫu",
+      "question_type": "multiple_choice",
+      "difficulty": 1,
+      "prompt": "Nội dung nào mô tả đúng khái niệm mẫu?",
+      "options": [
+        {"option_id": "A", "text": "Đáp án đúng mẫu"},
+        {"option_id": "B", "text": "Phương án gây nhiễu"}
+      ],
+      "correct_option_id": "A",
+      "explanation": "Thay phần giải thích bằng nội dung đã được giảng viên duyệt.",
+      "citation": {
+        "document_id": "official_textbook",
+        "document_title": "Giáo trình chính thức",
+        "source_path": "documents/textbook.md",
+        "source_type": "official_textbook",
+        "source_authority": "Cơ quan hoặc nhà xuất bản",
+        "publication_year": 2025,
+        "section_title": "Chương 1",
+        "start_line": 1,
+        "end_line": 10
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+[
+  {
+    "case_id": "knowledge_001",
+    "question": "Khái niệm trong giáo trình là gì?",
+    "course_id": "sample_political_course",
+    "course_version": "1.0.0",
+    "expected_route": "knowledge",
+    "expected_verification_status": "PASS",
+    "top_k": 5
+  },
+  {
+    "case_id": "direct_001",
+    "question": "Xin chào",
+    "course_id": "sample_political_course",
+    "course_version": "1.0.0",
+    "expected_route": "direct",
+    "expected_verification_status": "NOT_REQUIRED",
+    "top_k": 5
+  }
+]

@@ -245,3 +245,14 @@ def get_optional_current_user(
     db: Session = Depends(get_db),
 ) -> UserModel | None:
     return _user_from_token(token, db)
+
+
+def get_content_manager(
+    current_user: UserModel = Depends(get_current_user),
+) -> UserModel:
+    if not current_user.is_content_manager:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản không có quyền quản lý nội dung môn học.",
+        )
+    return current_user

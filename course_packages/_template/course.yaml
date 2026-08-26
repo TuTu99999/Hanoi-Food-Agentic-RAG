@@ -1,0 +1,30 @@
+course_id: sample_political_course
+name: Môn lý luận chính trị mẫu
+domain: political_theory
+version: 1.0.0
+language: vi
+description: Thay thông tin mẫu bằng thông tin của môn cần nạp.
+
+retrieval:
+  dense: true
+  keyword: true
+  graph_expansion: true
+
+assessment:
+  mastery_model: bkt
+  allowed_question_types:
+    - multiple_choice
+    - short_answer
+
+automation:
+  adaptive_replanning: true
+  reminders: true
+
+# Không bắt buộc, nhưng nên khai báo để citation rõ ràng.
+# sources:
+#   - path: documents/giao_trinh.pdf
+#     document_id: official_textbook
+#     title: Giáo trình chính thức
+#     source_type: official_textbook
+#     source_authority: Tên cơ quan hoặc nhà xuất bản
+#     publication_year: 2025

@@ -1,0 +1,12 @@
+[
+  {
+    "case_id": "definition_001",
+    "query": "Khái niệm cần đánh giá là gì?",
+    "course_id": "sample_political_course",
+    "course_version": "1.0.0",
+    "expected_chunk_ids": [
+      "thay_bang_chunk_id_tu_processed_output"
+    ],
+    "top_k": 5
+  }
+]

@@ -91,6 +91,63 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "test-gemini-key")
 
+    def test_kimi_provider_uses_kimi_defaults_and_key(self):
+        result = self.run_config(
+            (
+                "from core.config import settings; "
+                "print(settings.LLM_PROVIDER); "
+                "print(settings.LLM_API_KEY); "
+                "print(settings.LLM_BASE_URL); "
+                "print(settings.LLM_MODEL); "
+                "print(settings.LLM_REASONING_EFFORT)"
+            ),
+            overrides={
+                "LLM_PROVIDER": "kimi",
+                "LLM_API_KEY": "",
+                "KIMI_API_KEY": "test-kimi-key",
+                "LLM_BASE_URL": "",
+                "LLM_MODEL": "",
+                "LLM_REASONING_EFFORT": "",
+            },
+            remove=("GEMINI_API_KEY", "MOONSHOT_API_KEY"),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.stdout.splitlines(),
+            [
+                "kimi",
+                "test-kimi-key",
+                "https://api.moonshot.ai/v1",
+                "kimi-k3",
+                "low",
+            ],
+        )
+
+    def test_unknown_llm_provider_fails_fast(self):
+        result = self.run_config(
+            "import core.config",
+            overrides={"LLM_PROVIDER": "unknown"},
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("LLM_PROVIDER", result.stderr)
+
+    def test_academic_agent_limits_fail_fast(self):
+        invalid_revisions = self.run_config(
+            "import core.config",
+            overrides={"ACADEMIC_AGENT_MAX_REVISIONS": "3"},
+        )
+        self.assertNotEqual(invalid_revisions.returncode, 0)
+        self.assertIn("ACADEMIC_AGENT_MAX_REVISIONS", invalid_revisions.stderr)
+
+        invalid_top_k = self.run_config(
+            "import core.config",
+            overrides={"ACADEMIC_AGENT_TOP_K": "0"},
+        )
+        self.assertNotEqual(invalid_top_k.returncode, 0)
+        self.assertIn("ACADEMIC_AGENT_TOP_K", invalid_top_k.stderr)
+
     def test_qdrant_url_ignores_platform_port_variable(self):
         result = self.run_config(
             "from core.config import settings; print(settings.QDRANT_URL)",
